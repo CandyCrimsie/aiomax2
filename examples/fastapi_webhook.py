@@ -1,4 +1,6 @@
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
@@ -13,11 +15,27 @@ router = Router(name=__name__)
 
 @router.message(Command("start"))
 async def start(message: Message) -> None:
-    await message.answer("Hello from a MAX webhook")
+    await message.answer("Привет из MAX Webhook")
 
 
 dispatcher.include_router(router)
-app = FastAPI()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    webhook_url = os.environ.get("MAX_WEBHOOK_URL")
+    if webhook_url is not None:
+        await bot.subscribe(
+            webhook_url,
+            secret=os.environ.get("MAX_WEBHOOK_SECRET"),
+            update_types=dispatcher.resolve_used_update_types(),
+        )
+    yield
+    await bot.close()
+    await dispatcher.close()
+
+
+app = FastAPI(lifespan=lifespan)
 app.include_router(
     dispatcher.webhook_router(
         "/webhook",
@@ -25,9 +43,3 @@ app.include_router(
         secret=os.environ.get("MAX_WEBHOOK_SECRET"),
     )
 )
-
-
-@app.on_event("shutdown")
-async def shutdown() -> None:
-    await bot.close()
-    await dispatcher.close()

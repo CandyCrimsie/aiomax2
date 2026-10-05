@@ -1,0 +1,41 @@
+name: Сообщить об ошибке
+description: Воспроизводимая ошибка в aiomax2
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Не публикуйте MAX token, webhook secret или персональные данные.
+  - type: input
+    id: version
+    attributes:
+      label: Версия aiomax2
+      placeholder: 0.1.0a1
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Версия Python
+      placeholder: 3.12.7
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Шаги воспроизведения
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Ожидаемое поведение
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Фактическое поведение и traceback
+    validations:
+      required: true
+

@@ -1,0 +1,57 @@
+site_name: aiomax2
+site_description: Асинхронный Python-фреймворк для MAX Bot API
+site_url: https://candycrimsie.github.io/aiomax2/
+repo_url: https://github.com/CandyCrimsie/aiomax2
+repo_name: CandyCrimsie/aiomax2
+
+theme:
+  name: material
+  language: ru
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+
+nav:
+  - Главная: index.md
+  - Начало работы:
+      - Установка: installation.md
+      - Быстрый старт: quickstart.md
+      - Long Polling: polling.md
+      - Webhook: webhook.md
+  - Обработка событий:
+      - Dispatcher и Router: router.md
+      - Handlers: handlers.md
+      - Фильтры: filters.md
+      - Команды: commands.md
+      - Magic filter F: magic-filter.md
+      - Callback и клавиатуры: callbacks.md
+      - Middleware: middleware.md
+      - FSM: fsm.md
+  - MAX API:
+      - Загрузки: uploads.md
+      - Подписки: subscriptions.md
+      - Ошибки: errors.md
+      - Rate limits: rate-limits.md
+      - TLS и сертификаты: certificates.md
+      - Покрытие API: api-coverage.md
+  - Проект:
+      - Миграция с aiogram: migration-from-aiogram.md
+      - Архитектура: architecture.md
+      - Исследование: research.md
+      - Roadmap: roadmap.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - tables
+

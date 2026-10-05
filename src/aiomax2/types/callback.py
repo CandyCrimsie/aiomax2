@@ -29,6 +29,10 @@ class Callback(MAXObject):
         format: TextFormat | str | None = None,
         disable_link_preview: bool | None = None,
     ) -> bool:
+        callback_message = getattr(self, "message", None)
+        chat_id = (
+            callback_message.chat_id if isinstance(callback_message, Message) else None
+        )
         return await self.require_bot().answer_callback(
             self.callback_id,
             notification=notification,
@@ -37,6 +41,8 @@ class Callback(MAXObject):
             attachments=attachments,
             format=format,
             disable_link_preview=disable_link_preview,
+            chat_id=chat_id,
+            user_id=None if chat_id is not None else self.user.user_id,
         )
 
 

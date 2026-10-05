@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import time
 from collections.abc import AsyncIterator
 
 import aiohttp
@@ -7,16 +9,23 @@ import pytest
 import pytest_asyncio
 from aiohttp import web
 
-from aiomax2.client import AiohttpSession
+from aiomax2.client import AiohttpSession, AsyncRateLimiter
 from aiomax2.exceptions import UnauthorizedError
 
 
 @pytest_asyncio.fixture
 async def api_server() -> AsyncIterator[tuple[str, dict[str, int]]]:
-    state = {"limited": 0, "connections": 0}
+    state = {
+        "limited": 0,
+        "limited_many": 0,
+        "connections": 0,
+        "concurrent": 0,
+    }
 
     async def me(request: web.Request) -> web.Response:
         assert request.headers["Authorization"] == "token"
+        state["client_header"] = int(request.headers.get("X-Client") == "custom")
+        state["request_header"] = int(request.headers.get("X-Request") == "value")
         state["connections"] += 1
         return web.json_response({"user_id": 1, "first_name": "Bot", "is_bot": True})
 
@@ -30,10 +39,26 @@ async def api_server() -> AsyncIterator[tuple[str, dict[str, int]]]:
             )
         return web.json_response({"success": True})
 
+    async def limited_many(_: web.Request) -> web.Response:
+        state["limited_many"] += 1
+        if state["limited_many"] <= 2:
+            return web.json_response(
+                {"message": "slow down again"},
+                status=429,
+                headers={"Retry-After": "0.01"},
+            )
+        return web.json_response({"success": True})
+
+    async def concurrent(_: web.Request) -> web.Response:
+        state["concurrent"] += 1
+        await asyncio.sleep(0)
+        return web.json_response({"success": True})
+
     async def unauthorized(_: web.Request) -> web.Response:
         return web.json_response({"message": "bad token"}, status=401)
 
     async def upload(request: web.Request) -> web.Response:
+        state["upload_authorized"] = int("Authorization" in request.headers)
         reader = await request.multipart()
         field = await reader.next()
         assert field is not None and field.name == "data"
@@ -43,6 +68,8 @@ async def api_server() -> AsyncIterator[tuple[str, dict[str, int]]]:
     app = web.Application()
     app.router.add_get("/me", me)
     app.router.add_get("/limited", limited)
+    app.router.add_get("/limited-many", limited_many)
+    app.router.add_get("/concurrent", concurrent)
     app.router.add_get("/unauthorized", unauthorized)
     app.router.add_post("/upload", upload)
     runner = web.AppRunner(app)
@@ -93,7 +120,7 @@ async def test_external_session_is_not_closed(
     api_server: tuple[str, dict[str, int]],
 ) -> None:
     base_url, _ = api_server
-    external = aiohttp.ClientSession(headers={"Authorization": "token"})
+    external = aiohttp.ClientSession()
     transport = AiohttpSession("token", base_url=base_url, session=external)
     await transport.request("GET", "/me")
     await transport.close()
@@ -103,7 +130,60 @@ async def test_external_session_is_not_closed(
 
 
 @pytest.mark.asyncio
-async def test_multipart_upload_reuses_verified_session(
+async def test_custom_session_receives_library_authorization_header(
+    api_server: tuple[str, dict[str, int]],
+) -> None:
+    base_url, state = api_server
+    external = aiohttp.ClientSession(headers={"X-Client": "custom"})
+    transport = AiohttpSession("token", base_url=base_url, session=external)
+
+    await transport.request(
+        "GET",
+        "/me",
+        headers={"Authorization": "must-not-win", "X-Request": "value"},
+    )
+    await transport.close()
+
+    assert state["client_header"] == 1
+    assert state["request_header"] == 1
+    assert not external.closed
+    await external.close()
+
+
+@pytest.mark.asyncio
+async def test_multiple_429_responses_honor_retry_after(
+    api_server: tuple[str, dict[str, int]],
+) -> None:
+    base_url, state = api_server
+    transport = AiohttpSession("token", base_url=base_url, max_retries=2)
+    started = time.monotonic()
+
+    result = await transport.request("GET", "/limited-many")
+
+    assert result == {"success": True}
+    assert state["limited_many"] == 3
+    assert time.monotonic() - started >= 0.018
+    await transport.close()
+
+
+@pytest.mark.asyncio
+async def test_thirty_concurrent_api_requests_share_global_limiter(
+    api_server: tuple[str, dict[str, int]],
+) -> None:
+    base_url, state = api_server
+    transport = AiohttpSession("token", base_url=base_url, rate_limit=30)
+    transport.rate_limiter = AsyncRateLimiter(30, period=0.05)
+    started = time.monotonic()
+
+    await asyncio.gather(*(transport.request("GET", "/concurrent") for _ in range(31)))
+
+    assert state["concurrent"] == 31
+    assert time.monotonic() - started >= 0.04
+    await transport.close()
+
+
+@pytest.mark.asyncio
+async def test_multipart_upload_uses_verified_session_without_api_token(
     api_server: tuple[str, dict[str, int]],
 ) -> None:
     base_url, state = api_server
@@ -117,3 +197,42 @@ async def test_multipart_upload_reuses_verified_session(
 
     assert result == {"photos": {"photoIds": {"token": "image-token"}}}
     assert state["uploaded_bytes"] == len(b"image data")
+    assert state["upload_authorized"] == 0
+
+
+@pytest.mark.asyncio
+async def test_external_upload_does_not_leak_custom_session_authorization(
+    api_server: tuple[str, dict[str, int]],
+) -> None:
+    base_url, state = api_server
+    external = aiohttp.ClientSession(headers={"Authorization": "private"})
+    transport = AiohttpSession("token", base_url=base_url, session=external)
+
+    await transport.upload(
+        f"{base_url}/upload",
+        b"image data",
+        filename="image.png",
+    )
+    await transport.close()
+
+    assert state["upload_authorized"] == 0
+    assert not external.closed
+    await external.close()
+
+
+@pytest.mark.asyncio
+async def test_upload_authorization_is_explicit_when_protocol_requires_it(
+    api_server: tuple[str, dict[str, int]],
+) -> None:
+    base_url, state = api_server
+    transport = AiohttpSession("token", base_url=base_url)
+
+    await transport.upload(
+        f"{base_url}/upload",
+        b"image data",
+        filename="image.png",
+        authorization=True,
+    )
+    await transport.close()
+
+    assert state["upload_authorized"] == 1

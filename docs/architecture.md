@@ -1,21 +1,21 @@
-# Architecture
+# Архитектура
 
-The package is divided by responsibility rather than by endpoint count:
+Пакет разделён по ответственности, а не по количеству endpoints:
 
 ```text
 src/aiomax2/
-├── client/          pooled aiohttp transport, TLS, retries, rate limiting
-├── types/           Pydantic models and MAX update parsing
+├── client/          aiohttp transport, TLS, retries, rate limiting
+├── types/           Pydantic-модели и parsing MAX updates
 ├── dispatcher/      observers, routers, middleware, DI, dispatcher
-├── filters/         base filter, Command, magic F, state filter
+├── filters/         Filter, Command, magic F, StateFilter
 ├── fsm/             states, context, strategies, storage
-├── webhook/         transport-neutral handler and framework adapters
-├── bot.py           typed low-level MAX API facade
-├── enums.py         values defined by the MAX schema
-└── exceptions.py    transport/API/framework errors
+├── webhook/         независимый handler и adapters
+├── bot.py           типизированный facade MAX API
+├── enums.py         значения актуальной MAX-схемы
+└── exceptions.py    ошибки transport/API/framework
 ```
 
-The processing pipeline is:
+Pipeline обработки:
 
 ```text
 raw JSON
@@ -30,30 +30,35 @@ raw JSON
   -> signature-based handler invocation
 ```
 
-## Important boundaries
+## Границы ответственности
 
-`AiohttpSession` owns transport concerns. `Bot` owns MAX endpoint semantics and
-model conversion. The dispatcher never builds HTTP requests. Models may call a
-bound `Bot` only through explicit shortcuts.
+`AiohttpSession` отвечает за HTTP, pooling, TLS, retries, `429` и глобальный
+лимит. `Bot` знает semantics endpoints, target limits и преобразование моделей.
+Dispatcher не создаёт HTTP-запросы. Модели обращаются к связанному `Bot` только
+через явные shortcuts.
 
-The `Update` parser uses an explicit mapping instead of relying solely on an
-OpenAPI-generated discriminated union. This both fixes generator limitations
-documented by MAX and preserves unknown future updates as generic objects.
+Parser `Update` использует явную таблицу discriminator вместо полной
+зависимости от сгенерированного OpenAPI union. Это учитывает ограничения
+генераторов, описанные MAX, и сохраняет неизвестные будущие события как общий
+`Update`, не ломая Webhook.
 
-The framework context is a mutable dictionary scoped to one update. Filters
-and middleware may add values; handler invocation only passes named values
-accepted by the callable. This gives aiogram-like dependency injection without
-a service container or implicit global state.
+Context — изменяемый словарь в пределах одного update. Filters и middleware
+могут добавлять значения; invocation передаёт callable только запрошенные по
+имени аргументы. Это даёт aiogram-like DI без глобального service container.
 
-## Delivery guarantees
+## Доставка и подтверждение
 
-Webhook secret comparison is constant-time. A successful HTTP response means
-the update was parsed and dispatched. Applications that require durable or
-exactly-once processing should acknowledge into their own queue before doing
-business work; the framework itself does not claim such a guarantee.
+Webhook secret сравнивается в constant time. Успешный HTTP-ответ означает, что
+update разобран и pipeline handler завершён. Framework не обещает durable или
+exactly-once обработку. Для таких требований application должна записать event
+в собственную очередь или транзакционное хранилище.
 
-The HTTP layer automatically retries rate-limit responses according to
-`Retry-After`. Network and 5xx retries are restricted to idempotent methods by
-default. Non-idempotent MAX operations are not replayed after ambiguous network
-failures.
+HTTP layer повторяет `429` согласно `Retry-After`. Network и 5xx retries по
+умолчанию разрешены только для idempotent methods. Неидемпотентные операции MAX
+не повторяются после неоднозначного сетевого сбоя.
 
+## Локальное состояние
+
+Rate limiters и `MemoryStorage` находятся в памяти одного процесса. Несколько
+workers не разделяют эти данные. Distributed limiter, Redis FSM storage и
+queue-based Webhook processing запланированы отдельно.

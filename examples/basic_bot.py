@@ -10,12 +10,12 @@ router = Router(name=__name__)
 
 @router.message(Command("start"))
 async def start(message: Message, command: CommandObject) -> None:
-    await message.answer(f"Hello from MAX. args={command.args!r}")
+    await message.answer(f"Привет из MAX! args={command.args!r}")
 
 
-@router.message(F.text == "ping")
+@router.message(F.text == "пинг")
 async def ping(message: Message) -> None:
-    await message.reply("pong")
+    await message.reply("понг")
 
 
 async def main() -> None:

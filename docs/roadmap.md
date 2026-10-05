@@ -2,39 +2,42 @@
 
 ## MVP (`0.1.0a1`)
 
-- [x] Research official API, `aiomax`, and aiogram 3.x
-- [x] Record mapping, incompatibilities, and architecture
-- [x] Pooled HTTP transport with TLS, retries, 429 handling, and 30 rps limiter
-- [x] Typed core MAX models and all official update variants
-- [x] Core Bot methods for messages, callbacks, subscriptions, and updates
-- [x] Nested Router, Dispatcher, filters, middleware, and context injection
-- [x] `Command`, `CommandObject`, and magic `F`
-- [x] Bound message and callback shortcuts
-- [x] Async FSM with memory storage and MAX-aware key strategies
-- [x] Webhook core plus FastAPI integration
-- [x] Development-only long polling
+- [x] Исследование официального API, архивного `aiomax` и aiogram 3.x
+- [x] Таблица соответствий, различия и архитектура
+- [x] HTTP transport с pooling, TLS, retries, `429` и лимитом 30 rps
+- [x] Target limiter 2 operations/sec для message mutations и callbacks
+- [x] Типизированные модели MAX и актуальные варианты updates
+- [x] Методы Bot для messages, callbacks, subscriptions и updates
+- [x] Вложенные Router, Dispatcher, filters, middleware и context injection
+- [x] `Command`, `CommandObject` и magic `F`
+- [x] Shortcuts сообщений и callbacks с передачей target
+- [x] Async FSM с memory storage и MAX-aware стратегиями ключей
+- [x] Webhook core и FastAPI integration
+- [x] Long Polling для разработки
 - [x] Multipart media upload helpers
-- [x] Unit and mock-server integration tests
-- [x] Examples and aiogram migration guide
+- [x] Unit и mock-server integration tests
+- [x] Русскоязычная документация, примеры и migration guide
 
 ## `0.2`
 
-- Attachment-readiness polling with explicit bounded backoff
-- Resumable/chunked upload in addition to the MVP multipart helper
-- Redis FSM storage and configurable event isolation
-- aiohttp/Starlette webhook adapters and deployment recipes
-- Recorded contract fixtures from real MAX responses
+- Distributed / Redis-backed rate limiter для multi-worker deployments
+- Redis FSM storage и настраиваемая event isolation
+- Background Webhook processing и queue-based production strategy
+- Проверка готовности attachments с ограниченным backoff
+- Resumable/chunked upload в дополнение к multipart helper
+- aiohttp/Starlette adapters и дополнительные deployment recipes
+- Contract fixtures из реальных ответов MAX
 
 ## `0.3`
 
-- Schema-diff CI against the official repository
-- Generated conformance tests for all request/response models
-- Callback-data factory and keyboard builder
-- Structured API client middleware and observability hooks
+- Schema-diff CI относительно официального репозитория
+- Сгенерированные conformance tests request/response моделей
+- Callback-data factory и keyboard builder
+- API client middleware и observability hooks
 
 ## Before stable `1.0`
 
-- Validate real webhook round trips for every update discriminator
-- Establish compatibility and deprecation policy
-- Publish complete API reference and security guide
-- Load-test domain and per-chat limiters
+- Проверить реальные Webhook round trips каждого update discriminator
+- Зафиксировать compatibility/deprecation policy
+- Опубликовать полную API reference и security guide
+- Провести load tests глобального и target limiter

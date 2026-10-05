@@ -105,7 +105,8 @@ class Bot:
             ca_file=ca_file,
             session=session,
         )
-        # MAX documents at most two sends per second per target.
+        # MAX documents at most two message mutations/callback answers per
+        # second per dialog, group chat, or channel.
         self._target_limiter = KeyedRateLimiter(2, 1.0)
         self._me: BotInfo | None = None
 
@@ -136,6 +137,29 @@ class Bot:
         """Call a MAX endpoint directly while retaining transport safeguards."""
 
         return await self.transport.request(method, path, **kwargs)
+
+    async def _acquire_target_limit(
+        self,
+        *,
+        chat_id: int | None = None,
+        user_id: int | None = None,
+    ) -> None:
+        """Apply MAX's shared per-dialog message operation limit.
+
+        Message and callback shortcuts pass the concrete target. Low-level
+        calls that only have a message/callback id share a conservative
+        fallback bucket until the caller supplies ``chat_id`` or ``user_id``.
+        """
+
+        if chat_id is not None and user_id is not None:
+            raise ValidationError("pass at most one of chat_id or user_id")
+        if chat_id is not None:
+            target = f"chat:{chat_id}"
+        elif user_id is not None:
+            target = f"user:{user_id}"
+        else:
+            target = "unknown"
+        await self._target_limiter.acquire(target)
 
     async def get_my_info(self) -> BotInfo:
         result = BotInfo.model_validate(await self.request("GET", "/me"))
@@ -330,6 +354,7 @@ class Bot:
                     file,
                     filename=filename or path.name,
                     content_type=content_type,
+                    authorization=normalized_type is UploadType.IMAGE,
                 )
             finally:
                 await asyncio.to_thread(file.close)
@@ -345,6 +370,7 @@ class Bot:
                 source,
                 filename=filename,
                 content_type=content_type,
+                authorization=normalized_type is UploadType.IMAGE,
             )
         token = endpoint.token or _find_token(response)
         if token is None:
@@ -468,8 +494,7 @@ class Bot:
     ) -> Message:
         if (user_id is None) == (chat_id is None):
             raise ValidationError("pass exactly one of user_id or chat_id")
-        target = f"chat:{chat_id}" if chat_id is not None else f"user:{user_id}"
-        await self._target_limiter.acquire(target)
+        await self._acquire_target_limit(chat_id=chat_id, user_id=user_id)
         body = NewMessageBody(
             text=text,
             attachments=attachments,
@@ -500,7 +525,10 @@ class Bot:
         link: NewMessageLink | None = None,
         notify: bool | None = None,
         format: TextFormat | str | None = None,
+        chat_id: int | None = None,
+        user_id: int | None = None,
     ) -> bool:
+        await self._acquire_target_limit(chat_id=chat_id, user_id=user_id)
         body = NewMessageBody(
             text=text,
             attachments=attachments,
@@ -517,7 +545,14 @@ class Bot:
             )
         )
 
-    async def delete_message(self, message_id: str) -> bool:
+    async def delete_message(
+        self,
+        message_id: str,
+        *,
+        chat_id: int | None = None,
+        user_id: int | None = None,
+    ) -> bool:
+        await self._acquire_target_limit(chat_id=chat_id, user_id=user_id)
         return _success(
             await self.request("DELETE", "/messages", params={"message_id": message_id})
         )
@@ -631,6 +666,8 @@ class Bot:
         attachments: list[AttachmentRequest | dict[str, Any]] | None = None,
         format: TextFormat | str | None = None,
         disable_link_preview: bool | None = None,
+        chat_id: int | None = None,
+        user_id: int | None = None,
     ) -> bool:
         if message is not None and any(
             value is not None for value in (text, attachments, format)
@@ -642,6 +679,7 @@ class Bot:
             value is not None for value in (text, attachments, format)
         ):
             message = NewMessageBody(text=text, attachments=attachments, format=format)
+        await self._acquire_target_limit(chat_id=chat_id, user_id=user_id)
         body = CallbackAnswer(message=message, notification=notification)
         return _success(
             await self.request(

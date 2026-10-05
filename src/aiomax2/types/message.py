@@ -100,9 +100,11 @@ class Message(MAXObject):
 
     @property
     def user_id(self) -> int | None:
-        return (
-            self.sender.user_id if self.sender is not None else self.recipient.user_id
-        )
+        if self.sender is not None and self.sender.is_bot:
+            return self.recipient.user_id
+        if self.sender is not None:
+            return self.sender.user_id
+        return self.recipient.user_id
 
     def bind(self, bot: Bot) -> Message:
         super().bind(bot)
@@ -171,12 +173,18 @@ class Message(MAXObject):
             attachments=attachments,
             notify=notify,
             format=format,
+            chat_id=self.chat_id,
+            user_id=None if self.chat_id is not None else self.user_id,
         )
 
     async def delete(self) -> bool:
         if self.message_id is None:
             raise ValidationError("cannot delete a message without body.mid")
-        return await self.require_bot().delete_message(self.message_id)
+        return await self.require_bot().delete_message(
+            self.message_id,
+            chat_id=self.chat_id,
+            user_id=None if self.chat_id is not None else self.user_id,
+        )
 
 
 class CommentMessage(MAXObject):

@@ -47,6 +47,14 @@ class StubTransport:
         return {"success": True}
 
 
+class RecordingLimiter:
+    def __init__(self) -> None:
+        self.keys: list[str] = []
+
+    async def acquire(self, key: str) -> None:
+        self.keys.append(key)
+
+
 def incoming_message() -> Message:
     return Message.model_validate(
         {
@@ -58,10 +66,23 @@ def incoming_message() -> Message:
     )
 
 
+def outgoing_dialog_message() -> Message:
+    return Message.model_validate(
+        {
+            "sender": {"user_id": 1, "first_name": "Bot", "is_bot": True},
+            "recipient": {"user_id": 42, "chat_type": "dialog"},
+            "timestamp": 1,
+            "body": {"mid": "sent", "seq": 1, "text": "hello"},
+        }
+    )
+
+
 @pytest.mark.asyncio
 async def test_message_shortcuts_use_real_max_shapes() -> None:
     stub = StubTransport()
     bot = Bot("token", transport=cast(AiohttpSession, stub))
+    limiter = RecordingLimiter()
+    bot._target_limiter = cast(Any, limiter)
     message = incoming_message().bind(bot)
 
     answer = await message.answer("answer")
@@ -81,12 +102,15 @@ async def test_message_shortcuts_use_real_max_shapes() -> None:
     assert stub.calls[3][:2] == ("DELETE", "/messages")
     assert edited is True
     assert deleted is True
+    assert limiter.keys == ["chat:100"] * 4
 
 
 @pytest.mark.asyncio
 async def test_callback_answer_uses_answers_endpoint() -> None:
     stub = StubTransport()
     bot = Bot("token", transport=cast(AiohttpSession, stub))
+    limiter = RecordingLimiter()
+    bot._target_limiter = cast(Any, limiter)
     callback = CallbackQuery.model_validate(
         {
             "timestamp": 1,
@@ -115,3 +139,39 @@ async def test_callback_answer_uses_answers_endpoint() -> None:
             },
         )
     ]
+    assert limiter.keys == ["user:42"]
+
+
+@pytest.mark.asyncio
+async def test_callback_shortcut_passes_message_chat_target() -> None:
+    stub = StubTransport()
+    bot = Bot("token", transport=cast(AiohttpSession, stub))
+    limiter = RecordingLimiter()
+    bot._target_limiter = cast(Any, limiter)
+    callback = CallbackQuery.model_validate(
+        {
+            "timestamp": 1,
+            "callback_id": "callback.2",
+            "user": {"user_id": 42, "first_name": "Ada", "is_bot": False},
+            "message": incoming_message().model_dump(),
+        }
+    ).bind(bot)
+
+    await callback.answer(notification="Done")
+
+    assert limiter.keys == ["chat:100"]
+
+
+@pytest.mark.asyncio
+async def test_outgoing_dialog_shortcuts_keep_recipient_as_target() -> None:
+    stub = StubTransport()
+    bot = Bot("token", transport=cast(AiohttpSession, stub))
+    limiter = RecordingLimiter()
+    bot._target_limiter = cast(Any, limiter)
+    message = outgoing_dialog_message().bind(bot)
+
+    await message.edit_text("edited")
+    await message.delete()
+
+    assert message.user_id == 42
+    assert limiter.keys == ["user:42", "user:42"]

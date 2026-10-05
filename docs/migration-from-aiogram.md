@@ -1,38 +1,116 @@
-# Migration from aiogram 3.x
+# Миграция с aiogram 3.x
 
-The familiar pieces deliberately keep familiar names:
+Знакомые концепции намеренно сохраняют знакомые имена:
 
-| aiogram | aiomax2 | Notes |
+| aiogram | aiomax2 | Примечание |
 |---|---|---|
-| `Bot` | `Bot` | MAX token is sent without `Bearer` |
-| `Dispatcher` | `Dispatcher` | root router |
-| `Router` | `Router` | nested routers and observers |
-| `Command("start")` | `Command("start")` | injects `CommandObject` |
-| `F.text` | `F.text` | local expression engine |
-| `Message` | `Message` | real MAX fields; id is backed by `body.mid` |
-| `message.answer()` | `message.answer()` | chooses MAX `chat_id` or `user_id` |
+| `Bot` | `Bot` | MAX token отправляется без `Bearer` |
+| `Dispatcher` | `Dispatcher` | корневой router |
+| `Router` | `Router` | observers и вложенные routers |
+| `Command("start")` | `Command("start")` | добавляет `CommandObject` |
+| `F.text` | `F.text` | собственный небольшой expression engine |
+| `Message` | `Message` | реальные поля MAX; id хранится в `body.mid` |
+| `message.answer()` | `message.answer()` | выбирает MAX `chat_id` или `user_id` |
 | `FSMContext` | `FSMContext` | async storage API |
-| `State`, `StatesGroup` | same names | same declaration style |
+| `State`, `StatesGroup` | те же имена | похожий декларативный стиль |
 
-MAX-specific differences remain visible:
+## Простой handler
+
+aiogram:
+
+```python
+from aiogram import F, Router
+from aiogram.filters import Command
+from aiogram.types import Message
+
+router = Router()
+
+
+@router.message(Command("start"))
+async def start(message: Message) -> None:
+    await message.answer("Hello")
+```
+
+aiomax2:
+
+```python
+from aiomax2 import F, Router
+from aiomax2.filters import Command
+from aiomax2.types import Message
+
+router = Router()
+
+
+@router.message(Command("start"))
+async def start(message: Message) -> None:
+    await message.answer("Hello")
+```
+
+Сходство заканчивается там, где различаются платформы.
+
+## Поля Message
+
+```python
+# aiogram / Telegram
+chat_id = message.chat.id
+message_id = message.message_id
+
+# aiomax2 / MAX
+chat_id = message.chat_id
+message_id = message.message_id  # удобное свойство поверх message.body.mid
+recipient = message.recipient
+```
+
+В `aiomax2` нет искусственного `message.chat.id`. В диалоге target может быть
+представлен `recipient.user_id`, а в чате/канале — `recipient.chat_id`.
+
+## Callback
+
+MAX-событие содержит `Callback` и иногда исходный `Message`. Router передаёт
+удобный `CallbackQuery`, но операция соответствует `POST /answers`, а не
+Telegram `answerCallbackQuery`:
 
 ```python
 @router.callback_query(F.payload == "confirm")
 async def confirm(callback: CallbackQuery) -> None:
-    await callback.answer(notification="Confirmed")
+    await callback.answer(notification="Подтверждено")
 
 
 @router.bot_started()
 async def started(event: BotStartedUpdate) -> None:
-    # MAX supplies chat_id, user, optional payload and locale.
+    # MAX передаёт chat_id, user, optional payload и locale.
     ...
 ```
 
-There is no `message.chat.id` compatibility shim. Use `message.chat_id`,
-`message.recipient`, or the bound shortcut appropriate to the operation. There
-is no Telegram keyboard class: use MAX attachment/button models.
+## Клавиатуры
 
-For production, migrate aiogram polling entry points to a webhook deployment.
-The MAX documentation explicitly limits `GET /updates` to development and
-testing.
+Telegram использует reply markup, а MAX — attachment:
 
+```python
+keyboard = InlineKeyboardAttachmentRequest(
+    payload=Keyboard(buttons=[[CallbackButton(text="OK", payload="confirm")]])
+)
+await message.answer("Выберите", attachments=[keyboard])
+```
+
+Используйте MAX-классы кнопок и их реальные payload, не Telegram
+`InlineKeyboardMarkup`.
+
+## Events, которых нет в Telegram
+
+`bot_started`, `bot_stopped`, dialog muted/cleared/removed, comments и изменение
+прав администратора моделируются напрямую. Не пытайтесь преобразовывать их в
+похожие Telegram updates.
+
+## Запуск
+
+В aiogram polling часто используют и в production. MAX ограничивает Long
+Polling по скорости и хранению событий и рекомендует Webhook. Для production
+перенесите startup на FastAPI/aiohttp adapter и создайте подписку через
+`Bot.subscribe()`.
+
+## FSM и storage
+
+Объявление `StatesGroup` похоже, но встроенное `MemoryStorage` локально одному
+процессу. Для нескольких workers понадобится внешнее storage. Автоматической
+совместимости с aiogram Redis storage нет.

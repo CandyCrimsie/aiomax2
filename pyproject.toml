@@ -24,10 +24,18 @@ dependencies = [
 
 [project.optional-dependencies]
 fastapi = ["fastapi>=0.115"]
+docs = [
+    "mkdocs>=1.6,<2",
+    "mkdocs-material>=9.6",
+    "mkdocstrings[python]>=0.27",
+]
 dev = [
     "fastapi>=0.115",
     "httpx>=0.28",
     "mypy>=1.13",
+    "mkdocs>=1.6,<2",
+    "mkdocs-material>=9.6",
+    "mkdocstrings[python]>=0.27",
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
     "pytest-cov>=6",
@@ -53,6 +61,7 @@ ignore = ["ASYNC109", "B008"]
 
 [tool.ruff.lint.per-file-ignores]
 "**/__init__.py" = ["F401", "RUF022"]
+"examples/*.py" = ["RUF001"]
 
 [tool.ruff.format]
 quote-style = "double"

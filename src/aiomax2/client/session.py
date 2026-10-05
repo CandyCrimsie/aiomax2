@@ -53,8 +53,10 @@ class AiohttpSession:
         self.timeout = timeout
         self.max_retries = max_retries
         self.rate_limiter = AsyncRateLimiter(rate_limit)
+        self._client_timeout = aiohttp.ClientTimeout(total=self.timeout)
         self._provided_session = session
         self._session = session
+        self._upload_session: aiohttp.ClientSession | None = None
         self._owns_session = session is None
         self._ssl_context = ssl_context or self._build_ssl_context(ca_file)
 
@@ -76,15 +78,35 @@ class AiohttpSession:
         connector = aiohttp.TCPConnector(ssl=self._ssl_context)
         self._session = aiohttp.ClientSession(
             connector=connector,
-            timeout=aiohttp.ClientTimeout(total=self.timeout),
-            headers={"Authorization": self.token},
+            timeout=self._client_timeout,
         )
         self._owns_session = True
         return self._session
 
+    async def _open_upload_session(self) -> aiohttp.ClientSession:
+        """Return a pooled session without API authorization defaults.
+
+        Upload URLs point to separate MAX media hosts. Keeping their session
+        separate prevents custom API-session headers from leaking to those
+        hosts. Authorization can still be added explicitly for upload flows
+        whose protocol requires it.
+        """
+
+        if self._upload_session is not None and not self._upload_session.closed:
+            return self._upload_session
+        connector = aiohttp.TCPConnector(ssl=self._ssl_context)
+        self._upload_session = aiohttp.ClientSession(
+            connector=connector,
+            timeout=self._client_timeout,
+        )
+        return self._upload_session
+
     async def close(self) -> None:
         if self._owns_session and self._session is not None:
             await self._session.close()
+        if self._upload_session is not None:
+            await self._upload_session.close()
+            self._upload_session = None
         self._session = self._provided_session
 
     async def __aenter__(self) -> AiohttpSession:
@@ -114,11 +136,20 @@ class AiohttpSession:
             else retry_safe
         )
         url = f"{self.base_url}/{path.lstrip('/')}"
-        request_timeout: aiohttp.ClientTimeout | None
+        request_timeout: aiohttp.ClientTimeout
         if isinstance(timeout, (int, float)):
             request_timeout = aiohttp.ClientTimeout(total=float(timeout))
+        elif timeout is None:
+            request_timeout = self._client_timeout
         else:
             request_timeout = timeout
+        request_headers = {
+            key: value
+            for key, value in (headers or {}).items()
+            if key.casefold() != "authorization"
+        }
+        # The MAX token is authoritative even for a user-provided session.
+        request_headers["Authorization"] = self.token
 
         for attempt in range(self.max_retries + 1):
             await self.rate_limiter.acquire()
@@ -129,7 +160,7 @@ class AiohttpSession:
                     params=self._clean_params(params),
                     json=json,
                     data=data,
-                    headers=headers,
+                    headers=request_headers,
                     timeout=request_timeout,
                 ) as response:
                     raw = await response.read()
@@ -171,6 +202,7 @@ class AiohttpSession:
         *,
         filename: str,
         content_type: str | None = None,
+        authorization: bool = False,
     ) -> Any:
         """Upload one file to a URL previously returned by `POST /uploads`.
 
@@ -178,7 +210,7 @@ class AiohttpSession:
         retried. The pooled session and verified TLS connector are reused.
         """
 
-        session = await self.open()
+        session = await self._open_upload_session()
         form = aiohttp.FormData()
         form.add_field(
             "data",
@@ -186,8 +218,14 @@ class AiohttpSession:
             filename=filename,
             content_type=content_type or "application/octet-stream",
         )
+        headers = {"Authorization": self.token} if authorization else None
         try:
-            async with session.post(url, data=form) as response:
+            async with session.post(
+                url,
+                data=form,
+                headers=headers,
+                timeout=self._client_timeout,
+            ) as response:
                 raw = await response.read()
                 if 200 <= response.status < 300:
                     return self._decode_upload_payload(raw)

@@ -56,9 +56,18 @@ class AsyncRateLimiter:
 class KeyedRateLimiter:
     """Creates independent sliding windows for MAX chat/user targets."""
 
-    def __init__(self, limit: int, period: float = 1.0) -> None:
+    def __init__(
+        self,
+        limit: int,
+        period: float = 1.0,
+        *,
+        clock: Clock = time.monotonic,
+        sleep: Sleeper = asyncio.sleep,
+    ) -> None:
         self.limit = limit
         self.period = period
+        self._clock = clock
+        self._sleep = sleep
         self._limiters: dict[str, AsyncRateLimiter] = {}
         self._lock = asyncio.Lock()
 
@@ -67,6 +76,12 @@ class KeyedRateLimiter:
         if limiter is None:
             async with self._lock:
                 limiter = self._limiters.setdefault(
-                    key, AsyncRateLimiter(self.limit, self.period)
+                    key,
+                    AsyncRateLimiter(
+                        self.limit,
+                        self.period,
+                        clock=self._clock,
+                        sleep=self._sleep,
+                    ),
                 )
         await limiter.acquire()

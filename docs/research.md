@@ -1,82 +1,77 @@
-# Research and API mapping
+# Исследование и соответствие API
 
-Research date: 5 October 2026. Sources are ordered by authority:
+Дата исследования: 5 октября 2026. Источники в порядке приоритета:
 
-1. [Official MAX Bot API documentation](https://dev.max.ru/docs-api)
-2. [Official OpenAPI schema](https://github.com/max-messenger/api-schema)
-3. Observable API behaviour (to be captured as integration fixtures)
-4. Archived [dpnspn/aiomax](https://github.com/dpnspn/aiomax)
-5. [aiogram 3.x](https://github.com/aiogram/aiogram)
+1. [Официальная документация MAX Bot API](https://dev.max.ru/docs-api)
+2. [Официальная OpenAPI-схема](https://github.com/max-messenger/api-schema)
+3. Наблюдаемое поведение API, фиксируемое integration fixtures
+4. Архивный [dpnspn/aiomax](https://github.com/dpnspn/aiomax)
+5. [aiogram 3.x](https://github.com/aiogram/aiogram) только как ориентир DX
 
-The reviewed official schema is OpenAPI 3.0, version `0.0.33`. The API base URL
-is `https://platform-api2.max.ru`; the bot token is sent verbatim in the
-`Authorization` header (there is no `Bearer` prefix).
+Проверенная схема — OpenAPI 3.0 версии `0.0.33`. Base URL:
+`https://platform-api2.max.ru`. Токен передаётся без изменений в заголовке
+`Authorization`, без префикса `Bearer`.
 
-## Constraints that shape the framework
+## Ограничения, определяющие архитектуру
 
-- Webhook is the production transport. Long polling (`GET /updates`) is only
-  suitable for development and testing, and cannot be used while a webhook
-  subscription is active.
-- Webhook endpoints must use HTTPS with a trusted certificate. When a
-  subscription has a `secret`, MAX sends it in `X-Max-Bot-Api-Secret`.
-- The documented domain limit is 30 requests per second.
-- Message sending is additionally limited to two messages per second per
-  dialog/chat/channel. Similar two-per-second constraints apply to callback
-  answers and several mutating message operations.
-- A message body carries its id as `message.body.mid`; a message recipient is a
-  MAX `Recipient`, not a Telegram `Chat` object.
-- Update polymorphism is determined by `update_type`. Unknown future update
-  types must remain parseable as a generic `Update` rather than crashing the
-  webhook.
-- The archived `aiomax` repository does not cover all current events and
-  contains `message_chat_created`, which is absent from the current official
-  schema. It is not implemented here.
+- Webhook — production transport. Long Polling (`GET /updates`) подходит только
+  для разработки и тестов и не работает при активной Webhook-подписке.
+- Webhook требует HTTPS с доверенным сертификатом. При наличии `secret` MAX
+  передаёт его в `X-Max-Bot-Api-Secret` и ждёт `200 OK` не более 30 секунд.
+- Документированный лимит API domain — 30 requests/sec.
+- Отправка, редактирование, удаление сообщений и callback answers ограничены
+  двумя операциями/с на dialog/chat/channel.
+- ID сообщения находится в `message.body.mid`; получатель — MAX `Recipient`, а
+  не Telegram `Chat`.
+- Полиморфизм updates определяется `update_type`. Неизвестный будущий event
+  парсится как общий `Update`, а не ломает Webhook.
+- Архивный `aiomax` не покрывает актуальные события и содержит
+  `message_chat_created`, отсутствующий в официальной схеме. Эта устаревшая
+  сущность не реализована.
 
-## Correspondence matrix
+## Таблица соответствия
 
-| MAX API entity/event | archived `aiomax` | aiogram-like abstraction | `aiomax2` |
+| MAX API entity/event | архивный `aiomax` | aiogram-like abstraction | `aiomax2` |
 |---|---|---|---|
-| `Message` | `Message` with manual parsing | `Message` and bound shortcuts | typed `Message`; `answer`, `reply`, `edit_text`, `delete` |
+| `Message` | `Message` с ручным parsing | `Message` и bound shortcuts | типизированный `Message`; `answer`, `reply`, `edit_text`, `delete` |
 | `message_created` | `on_message` | `router.message(...)` | `router.message(...)` receives `Message` |
 | `message_callback` + `Callback` | `on_button_callback` | `router.callback_query(...)` | `router.callback_query(...)` receives `CallbackQuery` |
 | `message_edited` | `on_message_edit` | edited-message observer | `router.message_edited(...)` |
-| `message_removed` | `on_message_delete` | deleted-message observer | `router.message_removed(...)` with the MAX update object |
-| comment created/edited/removed | not covered | no direct Telegram equivalent | observers with exact MAX event names |
-| `bot_started` | `on_bot_start` | no exact Telegram equivalent | `router.bot_started(...)` |
-| `bot_stopped` | not covered | no exact Telegram equivalent | `router.bot_stopped(...)` |
-| bot/user added/removed | partial | chat-member observers | exact MAX observers, no Telegram status emulation |
-| dialog cleared/removed/muted/unmuted | not covered | no direct equivalent | exact MAX observers |
+| `message_removed` | `on_message_delete` | observer удаления | `router.message_removed(...)` с MAX update object |
+| comment created/edited/removed | не покрыты | нет прямого Telegram-аналога | observers с точными именами MAX |
+| `bot_started` | `on_bot_start` | нет точного Telegram-аналога | `router.bot_started(...)` |
+| `bot_stopped` | не покрыт | нет точного Telegram-аналога | `router.bot_stopped(...)` |
+| bot/user added/removed | частично | chat-member observers | точные MAX observers без эмуляции Telegram |
+| dialog cleared/removed/muted/unmuted | не покрыты | нет прямого аналога | точные MAX observers |
 | chat title changed | `on_chat_title_change` | service/chat update | `router.chat_title_changed(...)` |
-| bot admin permissions changed | not covered | chat-member update | exact MAX observer |
-| `GET /updates` + marker | Bot-owned polling loop | `Dispatcher.start_polling` | dispatcher-owned polling; documented as non-production |
-| `POST /subscriptions` | no first-class adapter | webhook adapters | generic handler plus optional FastAPI router |
+| bot admin permissions changed | не покрыт | chat-member update | точный MAX observer |
+| `GET /updates` + marker | polling внутри Bot | `Dispatcher.start_polling` | polling Dispatcher только для разработки |
+| `POST /subscriptions` | нет first-class adapter | webhook adapters | общий handler и FastAPI router |
 | command text | separate command registry | `Command` filter | `Command` returns `CommandObject` into context |
-| arbitrary object predicates | simple content filters | magic filter `F` | local typed path-expression implementation |
+| произвольные предикаты объекта | простые content filters | magic filter `F` | собственные typed path expressions |
 | handler context | name-based cursor injection | context data injection | signature-aware event/context injection |
-| FSM | synchronous user-only dictionary | async storage and `FSMContext` | async storage keyed by MAX user/chat strategy |
-| API errors | hand-written exceptions | typed API exceptions | status-aware hierarchy with retry metadata |
-| TLS/Ministry CA | bundled opt-in CA | normal TLS session | verified TLS; user CA file or `SSLContext`, never `ssl=False` |
+| FSM | sync-словарь по user | async storage и `FSMContext` | async storage с MAX user/chat strategy |
+| API errors | ручные exceptions | типизированные API exceptions | иерархия по HTTP status и retry metadata |
+| TLS/сертификаты Минцифры | bundled opt-in CA | стандартная TLS session | проверяемый TLS; CA file или `SSLContext`, без `ssl=False` |
 
-## Concepts intentionally not copied from Telegram
+## Что намеренно не копируется из Telegram
 
-- There are no Telegram `Update` fields, inline queries, payments, polls,
-  topics, Telegram reply markup classes, or `getMe`-derived chat semantics.
-- MAX callback answers use `POST /answers` and can replace a message and/or
-  show a notification; this is modelled directly.
-- MAX subscriptions are API resources. A webhook adapter does not silently
-  create or delete a subscription.
-- MAX message attachments and keyboard buttons retain their official
-  discriminator values and payload shapes.
-- Long polling is exposed for developer convenience but is not presented as a
-  production-equivalent alternative to webhooks.
+- Нет Telegram-полей `Update`, inline queries, payments, polls, topics,
+  Telegram reply markup и chat semantics на основе `getMe`.
+- Callback answer MAX использует `POST /answers` и может изменить сообщение,
+  показать notification или сделать оба действия.
+- MAX subscriptions — самостоятельные API resources. Adapter не создаёт и не
+  удаляет подписку неявно.
+- Attachments и кнопки сохраняют официальные discriminator и payload shapes.
+- Long Polling доступен для удобства разработки, но не представлен как
+  production-эквивалент Webhook.
 
-## Concepts carried over from aiogram
+## Концепции, перенесённые из aiogram
 
-- `Dispatcher` is the root `Router`.
-- Event observers support decorator and explicit registration styles.
-- Routers can be nested once and have a single parent.
-- Filters return `bool` or a context dictionary.
-- Outer middleware runs before filters; inner middleware runs after filters.
-- Handler arguments are selected from context data by signature.
-- FSM storage and state declarations are independent of the transport.
-
+- `Dispatcher` является корневым `Router`.
+- Observers поддерживают decorator и явную регистрацию.
+- Routers вкладываются и имеют одного родителя.
+- Filters возвращают `bool` или словарь context.
+- Outer middleware выполняется до фильтров, inner — после.
+- Аргументы handler выбираются из context по сигнатуре.
+- FSM storage и объявления states не зависят от transport.

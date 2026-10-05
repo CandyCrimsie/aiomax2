@@ -1,6 +1,6 @@
 from .dispatcher import Dispatcher
 from .event import UNHANDLED, EventObserver, HandlerObject
-from .middleware import BaseMiddleware
+from .middleware import BaseMiddleware, NextMiddleware
 from .router import Router
 
 __all__ = (
@@ -8,6 +8,7 @@ __all__ = (
     "Dispatcher",
     "EventObserver",
     "HandlerObject",
+    "NextMiddleware",
     "Router",
     "UNHANDLED",
 )

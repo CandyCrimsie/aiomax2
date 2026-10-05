@@ -1,0 +1,24 @@
+name: Предложить улучшение
+description: Новый API, DX или документационное улучшение
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Сценарий использования
+      description: Какую задачу разработчика решает предложение?
+    validations:
+      required: true
+  - type: textarea
+    id: max_source
+    attributes:
+      label: Источник MAX API
+      description: Ссылка на официальную документацию или OpenAPI, если применимо.
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Предлагаемый API
+    validations:
+      required: true
+
