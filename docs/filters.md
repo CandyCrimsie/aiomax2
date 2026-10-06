@@ -113,7 +113,7 @@ class ExtractName(Filter):
         if not message.text.startswith(prefix):
             return False
 
-        name = message.text[len(prefix):].strip()
+        name = message.text[len(prefix) :].strip()
 
         if not name:
             return False
@@ -200,13 +200,11 @@ router.message.filter(F.text)
 
 
 @router.message(F.text == "hello")
-async def hello(message: Message) -> None:
-    ...
+async def hello(message: Message) -> None: ...
 
 
 @router.message(F.text == "bye")
-async def bye(message: Message) -> None:
-    ...
+async def bye(message: Message) -> None: ...
 ```
 
 Сначала будет выполнен observer-level фильтр `F.text`, и только после него
@@ -226,8 +224,7 @@ dispatcher начнёт проверять фильтры конкретных h
 
 ```python
 @router.message(F.text == "hello")
-async def hello(message: Message) -> None:
-    ...
+async def hello(message: Message) -> None: ...
 ```
 
 вместо отдельного класса:
@@ -290,8 +287,7 @@ class Form(StatesGroup):
 
 
 @router.message(Form.name)
-async def process_name(message: Message) -> None:
-    ...
+async def process_name(message: Message) -> None: ...
 ```
 
 Такой handler будет вызван только тогда, когда текущий FSM state соответствует

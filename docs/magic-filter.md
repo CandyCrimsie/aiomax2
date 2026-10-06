@@ -78,8 +78,7 @@ event.sender.user_id == 123
 
 ```python
 @router.message(F.text)
-async def text_message(message: Message) -> None:
-    ...
+async def text_message(message: Message) -> None: ...
 ```
 
 Такой handler подходит только для сообщений, у которых `text` содержит
@@ -178,8 +177,7 @@ F.timestamp <= 2000
 
 ```python
 @router.message(F.chat_id == 100)
-async def selected_chat(message: Message) -> None:
-    ...
+async def selected_chat(message: Message) -> None: ...
 ```
 
 ## Работа со строками
@@ -196,8 +194,7 @@ F.text.startswith("hello")
 
 ```python
 @router.message(F.text.startswith("order:"))
-async def order(message: Message) -> None:
-    ...
+async def order(message: Message) -> None: ...
 ```
 
 ### `endswith`
@@ -212,8 +209,7 @@ F.text.endswith(".jpg")
 
 ```python
 @router.message(F.text.endswith("!"))
-async def exclamation(message: Message) -> None:
-    ...
+async def exclamation(message: Message) -> None: ...
 ```
 
 ### `contains`
@@ -234,8 +230,7 @@ F.text.contains("max")
 
 ```python
 @router.message(F.text.contains("aiomax2"))
-async def mention(message: Message) -> None:
-    ...
+async def mention(message: Message) -> None: ...
 ```
 
 `contains()` может использоваться и с другими объектами, поддерживающими
@@ -256,8 +251,7 @@ ADMIN_IDS = {100, 200, 300}
 
 
 @router.message(F.user_id.in_(ADMIN_IDS))
-async def admin(message: Message) -> None:
-    ...
+async def admin(message: Message) -> None: ...
 ```
 
 Это соответствует проверке:
@@ -288,8 +282,7 @@ HELLO
 
 ```python
 @router.message(F.text.lower() == "привет")
-async def greeting(message: Message) -> None:
-    ...
+async def greeting(message: Message) -> None: ...
 ```
 
 ### `upper`
@@ -316,8 +309,7 @@ F.text.len() > 10
 
 ```python
 @router.message(F.text.len() >= 100)
-async def long_message(message: Message) -> None:
-    ...
+async def long_message(message: Message) -> None: ...
 ```
 
 Если значение не поддерживает `len()`, фильтр просто не пройдёт.
@@ -336,8 +328,7 @@ F.text.regexp(r"^order:\d+$")
 
 ```python
 @router.message(F.text.regexp(r"^order:(\d+)$"))
-async def order(message: Message) -> None:
-    ...
+async def order(message: Message) -> None: ...
 ```
 
 Подойдёт сообщение:
@@ -405,9 +396,7 @@ from aiomax2 import F
 from aiomax2.types import Message
 
 
-@router.message(
-    F.text.regexp(r"^order:(\d+)$").as_("match")
-)
+@router.message(F.text.regexp(r"^order:(\d+)$").as_("match"))
 async def order(
     message: Message,
     match: re.Match[str],
@@ -442,12 +431,8 @@ match.group(1)
 Например:
 
 ```python
-@router.message(
-    (F.text.startswith("hello")) &
-    (F.chat_id == 100)
-)
-async def hello(message: Message) -> None:
-    ...
+@router.message((F.text.startswith("hello")) & (F.chat_id == 100))
+async def hello(message: Message) -> None: ...
 ```
 
 Оба условия должны быть истинными:
@@ -468,12 +453,8 @@ chat_id == 100
 Например:
 
 ```python
-@router.message(
-    (F.text == "yes") |
-    (F.text == "да")
-)
-async def confirm(message: Message) -> None:
-    ...
+@router.message((F.text == "yes") | (F.text == "да"))
+async def confirm(message: Message) -> None: ...
 ```
 
 Handler будет вызван, если выполняется хотя бы одно условие.
@@ -484,19 +465,13 @@ Handler будет вызван, если выполняется хотя бы �
 выражения в скобки:
 
 ```python
-(
-    (F.text == "hello") &
-    (F.user_id == 123)
-)
+((F.text == "hello") & (F.user_id == 123))
 ```
 
 и:
 
 ```python
-(
-    (F.text == "yes") |
-    (F.text == "да")
-)
+((F.text == "yes") | (F.text == "да"))
 ```
 
 Это делает порядок вычисления очевидным и предотвращает проблемы с
@@ -554,8 +529,7 @@ F.text.regexp(r"^order:(\d+)$").as_("match") & (F.chat_id == 100)
 async def order(
     message: Message,
     match: re.Match[str],
-) -> None:
-    ...
+) -> None: ...
 ```
 
 Это также хорошо показывает разницу между двумя механизмами:
@@ -582,8 +556,7 @@ expression A & expression B
     F.sender.user_id == ADMIN_ID,
     F.text.startswith("/"),
 )
-async def handler(message: Message) -> None:
-    ...
+async def handler(message: Message) -> None: ...
 ```
 
 Как и любые другие filters, они выполняются последовательно и работают как
@@ -620,59 +593,48 @@ F.payload
 
 ```python
 @router.message(F.text == "hello")
-async def exact(message: Message) -> None:
-    ...
+async def exact(message: Message) -> None: ...
 ```
 
 Начало строки:
 
 ```python
 @router.message(F.text.startswith("/"))
-async def command_like(message: Message) -> None:
-    ...
+async def command_like(message: Message) -> None: ...
 ```
 
 Регистронезависимая проверка:
 
 ```python
 @router.message(F.text.lower() == "hello")
-async def hello(message: Message) -> None:
-    ...
+async def hello(message: Message) -> None: ...
 ```
 
 Проверка пользователя:
 
 ```python
 @router.message(F.user_id == ADMIN_ID)
-async def admin(message: Message) -> None:
-    ...
+async def admin(message: Message) -> None: ...
 ```
 
 Несколько разрешённых пользователей:
 
 ```python
 @router.message(F.user_id.in_(ADMIN_IDS))
-async def admins(message: Message) -> None:
-    ...
+async def admins(message: Message) -> None: ...
 ```
 
 Проверка текста и пользователя:
 
 ```python
-@router.message(
-    (F.text == "admin") &
-    (F.user_id == ADMIN_ID)
-)
-async def admin_command(message: Message) -> None:
-    ...
+@router.message((F.text == "admin") & (F.user_id == ADMIN_ID))
+async def admin_command(message: Message) -> None: ...
 ```
 
 Регулярное выражение с извлечением значения:
 
 ```python
-@router.message(
-    F.text.regexp(r"^order:(\d+)$").as_("match")
-)
+@router.message(F.text.regexp(r"^order:(\d+)$").as_("match"))
 async def order(
     message: Message,
     match: re.Match[str],
@@ -684,8 +646,7 @@ Callback:
 
 ```python
 @router.callback_query(F.payload == "confirm")
-async def confirm(callback: CallbackQuery) -> None:
-    ...
+async def confirm(callback: CallbackQuery) -> None: ...
 ```
 
 ## Поддерживаемые операции

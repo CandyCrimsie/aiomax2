@@ -518,8 +518,7 @@ async def specific_user(message: Message) -> None:
 
 ```python
 @router.message(Command("admin"), F.sender.user_id == ADMIN_ID)
-async def admin(message: Message) -> None:
-    ...
+async def admin(message: Message) -> None: ...
 ```
 
 Подробнее см. разделы [Фильтры](filters.md),
@@ -562,13 +561,11 @@ Handlers одного observer проверяются в порядке реги
 
 ```python
 @router.message(F.text == "hello")
-async def first(message: Message) -> None:
-    ...
+async def first(message: Message) -> None: ...
 
 
 @router.message()
-async def fallback(message: Message) -> None:
-    ...
+async def fallback(message: Message) -> None: ...
 ```
 
 Если фильтры первого handler не прошли, проверяется следующий.
@@ -640,13 +637,11 @@ dispatcher.include_routers(messages, callbacks)
 
 
 @messages.message()
-async def message_handler(message: Message) -> None:
-    ...
+async def message_handler(message: Message) -> None: ...
 
 
 @callbacks.callback_query()
-async def callback_handler(callback_query: CallbackQuery) -> None:
-    ...
+async def callback_handler(callback_query: CallbackQuery) -> None: ...
 ```
 
 `Dispatcher.resolve_used_update_types()` собирает используемые MAX update types
