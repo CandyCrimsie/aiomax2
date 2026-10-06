@@ -1,55 +1,91 @@
 # aiomax2
 
 [![CI](https://github.com/CandyCrimsie/aiomax2/actions/workflows/ci.yml/badge.svg)](https://github.com/CandyCrimsie/aiomax2/actions/workflows/ci.yml)
+[![Documentation](https://github.com/CandyCrimsie/aiomax2/actions/workflows/docs.yml/badge.svg)](https://candycrimsie.github.io/aiomax2/)
+[![Python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
+[![License](https://img.shields.io/github/license/CandyCrimsie/aiomax2)](LICENSE)
 
-`aiomax2` — асинхронный Python-фреймворк для
-[MAX Bot API](https://dev.max.ru/docs-api) с developer experience, знакомым по
-aiogram 3.x. Библиотека предоставляет `Bot`, `Dispatcher`, вложенные `Router`,
-фильтры, middleware, FSM, Webhook и Long Polling, но сохраняет реальные
-сущности и ограничения MAX.
+**aiomax2** — асинхронный Python-фреймворк для
+[MAX Bot API](https://dev.max.ru/docs-api).
 
-> **Статус: Alpha (`0.1.0a2`).** Публичный API ещё может меняться до стабильной
-> версии. Модели сверены с официальной OpenAPI-схемой `0.0.33` 5 октября 2026
-> года.
+Он предоставляет знакомую по aiogram 3.x архитектуру с `Bot`, `Dispatcher`,
+`Router`, фильтрами, middleware, FSM и shortcuts, но работает с реальными
+сущностями, методами и ограничениями MAX.
+
+> **Статус: Alpha (`0.1.0a2`)**
+>
+> Библиотека находится в активной разработке. Публичный API до стабильного
+> релиза может изменяться.
+
+**Документация:** https://candycrimsie.github.io/aiomax2/
+
+---
 
 ## Возможности
 
-- типизированные модели событий и ответов MAX на Pydantic 2;
-- `Router`/`Dispatcher`, вложенные роутеры и первый подходящий handler;
-- `Command`, `CommandStart` и magic filters через `F`;
-- outer/inner middleware и context injection по сигнатуре;
-- shortcuts `answer`, `reply`, `edit_text`, `delete` и callback `answer`;
-- FSM с `MemoryStorage`;
-- production-oriented Webhook и адаптер для FastAPI;
-- Long Polling для разработки и тестирования;
-- единая `aiohttp`-сессия API, connection pooling, TLS, безопасные retries;
-- автоматическая обработка `429`, глобальный лимит 30 rps и target-лимиты;
+- полностью асинхронная работа через `asyncio` и `aiohttp`;
+- типизированные модели MAX API на Pydantic 2;
+- `Bot`, `Dispatcher` и вложенные `Router`;
+- фильтры и magic filter `F`;
+- `Command`, `CommandStart` и `CommandObject`;
+- outer и inner middleware;
+- dependency/context injection по сигнатуре handler;
+- FSM с `FSMContext`, `State`, `StatesGroup` и `MemoryStorage`;
+- shortcuts для сообщений и callback;
+- Long Polling;
+- Webhook и интеграция с FastAPI;
 - загрузка изображений, видео, аудио и файлов;
-- низкоуровневый доступ через методы `Bot` и `Bot.request()`.
+- управление webhook-подписками;
+- типизированные исключения MAX API;
+- автоматическая обработка `429` и `Retry-After`;
+- встроенные rate limits;
+- безопасный HTTP transport с обязательной TLS verification;
+- поддержка custom `aiohttp.ClientSession`;
+- поддержка дополнительного CA bundle;
+- низкоуровневый доступ к MAX API через `Bot.request()`.
+
+---
+
+## Требования
+
+- Python **3.12+**
+- `aiohttp`
+- Pydantic 2
+
+Для Webhook-интеграции с FastAPI доступен optional dependency `fastapi`.
+
+---
 
 ## Установка
 
-Требуется Python 3.12 или новее.
+Пока библиотека не опубликована на PyPI, её можно установить напрямую из
+GitHub:
 
 ```bash
 pip install "aiomax2 @ git+https://github.com/CandyCrimsie/aiomax2.git"
 ```
 
-Для FastAPI-интеграции:
+С поддержкой FastAPI:
 
 ```bash
 pip install "aiomax2[fastapi] @ git+https://github.com/CandyCrimsie/aiomax2.git"
 ```
 
-Локальная установка для разработки:
+Для локальной разработки:
 
 ```bash
 git clone https://github.com/CandyCrimsie/aiomax2.git
 cd aiomax2
+
 python -m pip install -e ".[dev]"
 ```
 
+---
+
 ## Быстрый старт
+
+Создайте бота в MAX и передайте его token через переменную окружения
+`MAX_BOT_TOKEN`.
 
 ```python
 import asyncio
@@ -64,7 +100,7 @@ router = Router()
 
 @router.message(Command("start"))
 async def start(message: Message) -> None:
-    await message.answer("Привет!")
+    await message.answer("Привет из aiomax2!")
 
 
 async def main() -> None:
@@ -73,78 +109,64 @@ async def main() -> None:
     dp = Dispatcher()
     dp.include_router(router)
 
-    await dp.start_polling(bot)
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await bot.close()
+        await dp.close()
 
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-- `Bot` выполняет типизированные запросы к MAX API.
-- `Dispatcher` принимает updates и управляет их обработкой.
-- `Router` группирует handlers, фильтры и middleware.
-- `Command("start")` пропускает сообщения `/start` и `/start аргументы`.
-- `Message` — реальная модель сообщения MAX с удобными shortcuts.
+Запуск:
 
-Long Polling ограничен MAX по скорости и сроку хранения событий, поэтому
-предназначен для разработки и тестов. Для production используйте Webhook.
+```bash
+python bot.py
+```
 
-## Webhook
+---
+
+## Dispatcher и Router
+
+Обработчики группируются внутри `Router`, после чего router подключается к
+`Dispatcher`.
 
 ```python
-from contextlib import asynccontextmanager
-import os
+from aiomax2 import Dispatcher, Router
+from aiomax2.filters import Command
+from aiomax2.types import Message
 
-from fastapi import FastAPI
-
-from aiomax2 import Bot, Dispatcher, Router
-
-bot = Bot(os.environ["MAX_BOT_TOKEN"])
-dp = Dispatcher()
 router = Router()
+
+
+@router.message(Command("help"))
+async def help_handler(message: Message) -> None:
+    await message.answer("Помощь")
+
+
+dp = Dispatcher()
 dp.include_router(router)
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    yield
-    await bot.close()
-    await dp.close()
-
-
-app = FastAPI(lifespan=lifespan)
-app.include_router(
-    dp.webhook_router(
-        "/webhook",
-        bot=bot,
-        secret=os.environ["MAX_WEBHOOK_SECRET"],
-    )
-)
 ```
 
-Зарегистрируйте HTTPS endpoint в MAX:
+Можно создавать несколько router и вкладывать их друг в друга для разделения
+логики приложения.
 
-```python
-await bot.subscribe(
-    "https://bot.example.ru/webhook",
-    secret="replace-with-a-random-secret",
-    update_types=["message_created", "message_callback", "bot_started"],
-)
-```
+---
 
-MAX передаёт secret в `X-Max-Bot-Api-Secret` и ожидает `200 OK` не позднее
-30 секунд. Подробности — в [руководстве по Webhook](docs/webhook.md).
+## Фильтры
 
-## Команды и фильтры
+Для простых условий доступен magic filter `F`:
 
 ```python
 from aiomax2 import F
-from aiomax2.filters import Command, CommandObject
+from aiomax2.types import Message
 
 
-@router.message(Command("start"))
-async def start(message: Message, command: CommandObject) -> None:
-    await message.answer(f"Аргументы: {command.args!r}")
+@router.message(F.text == "ping")
+async def ping(message: Message) -> None:
+    await message.answer("pong")
 
 
 @router.message(F.text.startswith("hello"))
@@ -152,9 +174,47 @@ async def hello(message: Message) -> None:
     await message.reply("Привет!")
 ```
 
-## Callback-кнопки
+Команды обрабатываются отдельными фильтрами:
 
-Клавиатура MAX является attachment сообщения, а не Telegram reply markup:
+```python
+from aiomax2.filters import Command, CommandObject
+
+
+@router.message(Command("echo"))
+async def echo(message: Message, command: CommandObject) -> None:
+    await message.answer(command.args or "Нет аргументов")
+```
+
+---
+
+## Shortcuts
+
+Типы MAX привязываются к экземпляру `Bot`, поэтому для большинства обычных
+операций не требуется вручную передавать идентификаторы.
+
+```python
+@router.message(Command("test"))
+async def test(message: Message) -> None:
+    sent = await message.answer("Первый текст")
+
+    await sent.edit_text("Текст изменён")
+    await sent.delete()
+```
+
+Доступны, в частности:
+
+```python
+await message.answer("Ответ")
+await message.reply("Ответ с привязкой к сообщению")
+await message.edit_text("Новый текст")
+await message.delete()
+```
+
+---
+
+## Callback и клавиатуры
+
+Клавиатура в MAX является attachment сообщения.
 
 ```python
 from aiomax2 import F
@@ -166,7 +226,16 @@ from aiomax2.types import (
 )
 
 keyboard = InlineKeyboardAttachmentRequest(
-    payload=Keyboard(buttons=[[CallbackButton(text="Подтвердить", payload="confirm")]])
+    payload=Keyboard(
+        buttons=[
+            [
+                CallbackButton(
+                    text="Подтвердить",
+                    payload="confirm",
+                )
+            ]
+        ]
+    )
 )
 
 
@@ -175,78 +244,469 @@ async def confirm(callback_query: CallbackQuery) -> None:
     await callback_query.answer(notification="Готово")
 ```
 
-## FSM и Middleware
+---
 
-FSM включает `State`, `StatesGroup`, `FSMContext` и process-local
-`MemoryStorage`. Middleware разделены на outer (до фильтров) и inner (после
-фильтров). Практические сценарии находятся в [FSM guide](docs/fsm.md) и
-[middleware guide](docs/middleware.md).
+## FSM
+
+В библиотеке есть встроенная FSM:
+
+```python
+from aiomax2.fsm.context import FSMContext
+from aiomax2.fsm.state import State, StatesGroup
+from aiomax2.filters import Command
+from aiomax2.types import Message
+
+
+class Form(StatesGroup):
+    name = State()
+    age = State()
+
+
+@router.message(Command("form"))
+async def start_form(message: Message, state: FSMContext) -> None:
+    await state.set_state(Form.name)
+    await message.answer("Как вас зовут?")
+
+
+@router.message(Form.name)
+async def process_name(message: Message, state: FSMContext) -> None:
+    await state.update_data(name=message.text)
+    await state.set_state(Form.age)
+    await message.answer("Сколько вам лет?")
+```
+
+По умолчанию используется process-local `MemoryStorage`.
+
+Для multi-worker production deployment рекомендуется внешнее общее хранилище.
+
+---
+
+## Webhook
+
+Для production рекомендуется использовать Webhook.
+
+Пример с FastAPI:
+
+```python
+import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+
+from aiomax2 import Bot, Dispatcher, Router
+
+bot = Bot(os.environ["MAX_BOT_TOKEN"])
+dp = Dispatcher()
+router = Router()
+
+dp.include_router(router)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    yield
+
+    await bot.close()
+    await dp.close()
+
+
+app = FastAPI(lifespan=lifespan)
+
+app.include_router(
+    dp.webhook_router(
+        "/webhook",
+        bot=bot,
+        secret=os.environ["MAX_WEBHOOK_SECRET"],
+    )
+)
+```
+
+Webhook можно зарегистрировать через `Bot`:
+
+```python
+await bot.subscribe(
+    "https://bot.example.ru/webhook",
+    secret="replace-with-a-random-secret",
+    update_types=[
+        "message_created",
+        "message_callback",
+        "bot_started",
+    ],
+)
+```
+
+MAX ожидает `200 OK` от Webhook не позднее чем через 30 секунд, поэтому долгие
+CPU-bound и blocking операции не следует выполнять непосредственно внутри
+handler.
+
+Подробнее:
+
+https://candycrimsie.github.io/aiomax2/webhook/
+
+---
+
+## Загрузка файлов
+
+`aiomax2` поддерживает загрузку изображений, видео, аудио и обычных файлов:
+
+```python
+image = await bot.upload_image("photo.png")
+video = await bot.upload_video("video.mp4")
+audio = await bot.upload_audio("audio.mp3")
+document = await bot.upload_file("document.pdf")
+
+await bot.send_message(
+    "Файлы",
+    chat_id=123,
+    attachments=[image, document],
+)
+```
+
+Transport отдельно обрабатывает внешние upload URL и не переносит на них
+headers основной API session.
+
+Подробнее:
+
+https://candycrimsie.github.io/aiomax2/uploads/
+
+---
 
 ## Работа с MAX API
 
+Основные методы доступны непосредственно через `Bot`:
+
 ```python
 me = await bot.get_my_info()
-message = await bot.send_message("Привет", chat_id=123)
-same_message = await bot.get_message(message.message_id)
 
-# Для ещё не обёрнутого endpoint остаётся низкоуровневый вызов:
-payload = await bot.request("GET", "/me")
+message = await bot.send_message(
+    "Привет!",
+    chat_id=123,
+)
+
+same_message = await bot.get_message(message.message_id)
 ```
+
+Для endpoint, который ещё не получил отдельный high-level wrapper, можно
+использовать:
+
+```python
+payload = await bot.request(
+    "GET",
+    "/me",
+)
+```
+
+При этом сохраняются transport safeguards библиотеки: авторизация, TLS,
+rate limiting и обработка API errors.
+
+---
 
 ## Rate limits
 
-`AiohttpSession` централизованно ограничивает все исходящие запросы к API до
-30 rps. Для `POST /messages`, `PUT /messages`, `DELETE /messages` и
-`POST /answers` aiomax2 консервативно использует единый локальный лимит
-2 операции/с на target. Это соблюдает документированные ограничения MAX,
-но в смешанных сценариях может ограничивать throughput сильнее сервера.
-Входящий поток `MAX -> webhook` в API limiter не входит.
+`aiomax2` применяет встроенный глобальный limiter к исходящим запросам MAX API.
 
-Limiter локален для одного процесса и одного transport instance. Несколько
-workers требуют внешнего shared limiter или ручного распределения общего
-лимита. См. [подробное описание](docs/rate-limits.md).
+Для операций отправки, редактирования и удаления сообщений, а также callback
+answers используется дополнительный консервативный per-target limiter:
 
-## Сертификаты Минцифры
+```text
+MAX API
+└── до 30 requests/sec
 
-Проверка TLS никогда не отключается, в том числе при передаче custom
-`aiohttp.ClientSession`: transport явно применяет свой `SSLContext` к API
-requests. Дополнительный CA bundle можно передать одним из способов:
+target A
+└── до 2 operations/sec
 
-```python
-bot = Bot(token, ca_file="/path/to/russian_trusted_ca.pem")
+target B
+└── отдельное окно до 2 operations/sec
 ```
 
-```python
-bot = Bot(token, ssl_context=context)
+Встроенные limiter хранят состояние в памяти процесса.
+
+Например:
+
+```bash
+uvicorn main:app --workers 4
 ```
 
-Подробнее: [TLS и сертификаты](docs/certificates.md).
+создаст четыре независимых limiter. Для multi-worker или multi-container
+deployment необходим внешний shared/distributed limiter.
 
-## Документация
+Подробнее:
 
-- [Установка](docs/installation.md)
-- [Быстрый старт](docs/quickstart.md)
-- [Long Polling](docs/polling.md)
-- [Webhook](docs/webhook.md)
-- [Router и Dispatcher](docs/router.md)
-- [Фильтры и команды](docs/filters.md)
-- [Callback-кнопки](docs/callbacks.md)
-- [FSM](docs/fsm.md)
-- [Загрузки](docs/uploads.md)
-- [Покрытие MAX API](docs/api-coverage.md)
-- [Миграция с aiogram](docs/migration-from-aiogram.md)
-- [Roadmap](docs/roadmap.md)
+https://candycrimsie.github.io/aiomax2/rate-limits/
+
+---
+
+## TLS и сертификаты
+
+TLS verification в `aiomax2` не отключается.
+
+Даже если переданная пользователем `aiohttp.ClientSession` создана с:
+
+```python
+aiohttp.TCPConnector(ssl=False)
+```
+
+для HTTPS-запросов transport явно применяет собственный проверяющий
+`SSLContext`.
+
+Дополнительный CA bundle можно передать через `ca_file`:
+
+```python
+bot = Bot(
+    token,
+    ca_file="/path/to/ca.pem",
+)
+```
+
+Или через собственный безопасный `SSLContext`:
+
+```python
+import ssl
+
+context = ssl.create_default_context()
+context.load_verify_locations(cafile="/path/to/ca.pem")
+
+bot = Bot(
+    token,
+    ssl_context=context,
+)
+```
+
+Пользовательский `SSLContext` должен сохранять проверку сертификата и hostname.
+
+Подробнее:
+
+https://candycrimsie.github.io/aiomax2/certificates/
+
+---
+
+## Custom aiohttp.ClientSession
+
+Можно использовать собственную `aiohttp.ClientSession`:
+
+```python
+import aiohttp
+
+from aiomax2 import Bot
+
+
+session = aiohttp.ClientSession(
+    headers={
+        "User-Agent": "my-max-bot/1.0",
+    }
+)
+
+bot = Bot(
+    token,
+    session=session,
+)
+```
+
+`Authorization` для MAX API добавляется самой библиотекой.
+
+Переданная пользователем session принадлежит пользователю, поэтому
+`Bot.close()` её не закрывает автоматически.
+
+---
+
+## Обработка ошибок
+
+API и transport ошибки представлены отдельными исключениями:
+
+```python
+from aiomax2.exceptions import (
+    BadRequestError,
+    ForbiddenError,
+    NetworkError,
+    RateLimitError,
+    UnauthorizedError,
+)
+
+try:
+    await bot.get_my_info()
+except UnauthorizedError:
+    print("Неверный token")
+except RateLimitError as error:
+    print("Rate limit:", error.retry_after)
+except NetworkError as error:
+    print("Network error:", error)
+```
+
+Подробнее:
+
+https://candycrimsie.github.io/aiomax2/errors/
+
+---
 
 ## Миграция с aiogram
 
-Знакомые концепции намеренно имеют похожие имена, но Telegram-поля и сущности
-не эмулируются. Например, в MAX используется `message.chat_id`, объект
-`message.recipient` и attachment-клавиатура. Сравнения и примеры собраны в
-[руководстве по миграции](docs/migration-from-aiogram.md).
+`aiomax2` использует знакомые концепции:
 
-## Статус проекта
+```text
+Bot
+Dispatcher
+Router
+Message
+Command
+F
+FSMContext
+Middleware
+```
 
-Проект находится в alpha-стадии. Перед production-внедрением зафиксируйте
-версию зависимости, используйте Webhook, общий limiter для multi-worker
-deployment и внешнее FSM-хранилище. Сообщения об ошибках и pull requests
-приветствуются.
+Но библиотека **не эмулирует Telegram API**.
+
+MAX остаётся источником истины для:
+
+- моделей;
+- названий полей;
+- callback;
+- клавиатур;
+- attachments;
+- Webhook;
+- rate limits;
+- upload flow;
+- API semantics.
+
+Например, клавиатура MAX является attachment сообщения, а не Telegram
+`reply_markup`.
+
+Подробное руководство:
+
+https://candycrimsie.github.io/aiomax2/migration-from-aiogram/
+
+---
+
+## Документация
+
+Полная документация публикуется через MkDocs и GitHub Pages:
+
+**https://candycrimsie.github.io/aiomax2/**
+
+### Начало работы
+
+- [Установка](https://candycrimsie.github.io/aiomax2/installation/)
+- [Быстрый старт](https://candycrimsie.github.io/aiomax2/quickstart/)
+- [Long Polling](https://candycrimsie.github.io/aiomax2/polling/)
+- [Webhook](https://candycrimsie.github.io/aiomax2/webhook/)
+
+### Обработка событий
+
+- [Dispatcher и Router](https://candycrimsie.github.io/aiomax2/router/)
+- [Handlers](https://candycrimsie.github.io/aiomax2/handlers/)
+- [Фильтры](https://candycrimsie.github.io/aiomax2/filters/)
+- [Команды](https://candycrimsie.github.io/aiomax2/commands/)
+- [Magic filter F](https://candycrimsie.github.io/aiomax2/magic-filter/)
+- [Callback и клавиатуры](https://candycrimsie.github.io/aiomax2/callbacks/)
+- [Middleware](https://candycrimsie.github.io/aiomax2/middleware/)
+- [FSM](https://candycrimsie.github.io/aiomax2/fsm/)
+
+### MAX API
+
+- [Загрузки](https://candycrimsie.github.io/aiomax2/uploads/)
+- [Подписки](https://candycrimsie.github.io/aiomax2/subscriptions/)
+- [Ошибки](https://candycrimsie.github.io/aiomax2/errors/)
+- [Rate limits](https://candycrimsie.github.io/aiomax2/rate-limits/)
+- [TLS и сертификаты](https://candycrimsie.github.io/aiomax2/certificates/)
+- [Покрытие MAX API](https://candycrimsie.github.io/aiomax2/api-coverage/)
+
+### Проект
+
+- [Миграция с aiogram](https://candycrimsie.github.io/aiomax2/migration-from-aiogram/)
+- [Архитектура](https://candycrimsie.github.io/aiomax2/architecture/)
+- [Исследование API](https://candycrimsie.github.io/aiomax2/research/)
+- [Roadmap](https://candycrimsie.github.io/aiomax2/roadmap/)
+
+---
+
+## Примеры
+
+Готовые примеры находятся в каталоге [`examples`](examples).
+
+В репозитории есть примеры для:
+
+- Long Polling;
+- Webhook с FastAPI;
+- команд;
+- фильтров;
+- callback-кнопок;
+- FSM;
+- middleware;
+- вложенных router;
+- message shortcuts;
+- uploads;
+- subscriptions;
+- custom `ClientSession`;
+- custom CA;
+- обработки ошибок.
+
+---
+
+## Разработка
+
+Установите development dependencies:
+
+```bash
+python -m pip install -e ".[dev]"
+```
+
+Перед commit рекомендуется запускать:
+
+```bash
+python -m ruff format --check .
+python -m ruff check .
+python -m mypy src/aiomax2
+python -m pytest
+python -m mkdocs build --strict
+```
+
+CI выполняет проверки на поддерживаемых версиях Python автоматически.
+
+Правила участия в разработке:
+
+[CONTRIBUTING.md](CONTRIBUTING.md)
+
+---
+
+## Roadmap
+
+В следующих версиях планируются, среди прочего:
+
+- Redis-backed distributed rate limiter;
+- Redis FSM storage;
+- настраиваемая event isolation;
+- background/queue-backed Webhook processing;
+- улучшенная проверка готовности attachments;
+- resumable/chunked uploads;
+- дополнительные production deployment recipes.
+
+Полный roadmap:
+
+https://candycrimsie.github.io/aiomax2/roadmap/
+
+---
+
+## Безопасность
+
+Инструкции по сообщению об уязвимостях находятся в:
+
+[SECURITY.md](SECURITY.md)
+
+Не публикуйте реальные bot tokens в issues, logs, examples или публичных
+репозиториях.
+
+---
+
+## Changelog
+
+История изменений:
+
+[CHANGELOG.md](CHANGELOG.md)
+
+---
+
+## Лицензия
+
+Проект распространяется по лицензии MIT.
+
+[LICENSE](LICENSE)
