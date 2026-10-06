@@ -5,9 +5,12 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
+from pydantic import ValidationError as PydanticValidationError
+
 from aiomax2.bot import Bot
 from aiomax2.dispatcher import Dispatcher
-from aiomax2.exceptions import WebhookSecretError
+from aiomax2.exceptions import WebhookPayloadError, WebhookSecretError
+from aiomax2.types import parse_update
 
 MAX_SECRET_HEADER = "X-Max-Bot-Api-Secret"
 
@@ -52,9 +55,14 @@ class WebhookHandler:
         if isinstance(body, Mapping):
             payload = dict(body)
         else:
-            payload = json.loads(body)
+            try:
+                payload = json.loads(body)
+            except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+                raise WebhookPayloadError("webhook body is not valid JSON") from exc
         if not isinstance(payload, dict):
-            raise ValueError("MAX webhook payload must be a JSON object")
-        return await self.dispatcher.feed_raw_update(
-            self.bot, payload, **self.feed_data
-        )
+            raise WebhookPayloadError("MAX webhook payload must be a JSON object")
+        try:
+            update = parse_update(payload)
+        except PydanticValidationError as exc:
+            raise WebhookPayloadError("webhook body is not a valid MAX update") from exc
+        return await self.dispatcher.feed_update(self.bot, update, **self.feed_data)

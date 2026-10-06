@@ -94,5 +94,9 @@ class WebhookSecretError(Aiomax2Error):
     """A webhook request did not carry the configured MAX secret."""
 
 
+class WebhookPayloadError(Aiomax2Error):
+    """A webhook request body is not a valid MAX update."""
+
+
 class SkipHandler(Aiomax2Error):
     """Skip the current handler and continue observer lookup."""

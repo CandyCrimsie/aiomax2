@@ -6,8 +6,45 @@ Semantic Versioning с pre-release суффиксами.
 
 ## [Unreleased]
 
+## [0.1.0a3] - 2026-10-06
+
+### Исправлено
+
+- `get_admins()` приведён к фактическому ответу MAX
+  `ChatMembersList.members`;
+- неподдерживаемый schema параметр `notify` больше не попадает в comment
+  requests; совместимый аргумент 0.1.x временно сохранён с
+  `DeprecationWarning`;
+- malformed Webhook JSON и невалидные update payload получают контролируемый
+  HTTP `400`, при этом исключения пользовательских handlers по-прежнему дают
+  `500`;
+- исключения фоновых polling handlers извлекаются и логируются без
+  `Task exception was never retrieved`;
+- очистка команд через `edit_my_commands(None)` сериализуется как
+  `commands=[]`;
+- модели принимают документированные legacy admin permissions, а
+  `BotStartedUpdate.payload` ограничен 512 символами согласно OpenAPI;
+- timing-проверки `Retry-After` и глобального limiter сделаны
+  детерминированными для Windows/Python 3.12.
+
+### Добавлено
+
+- параметризованные parsing, bind, nested Router, dependency context, FSM и
+  FastAPI Webhook round-trip tests для всех 19 официальных update types;
+- tests forward compatibility для неизвестных update types и дополнительных
+  полей, а также Webhook secret и malformed payload;
+- conformance tests high-level Bot API serialization и response binding;
+- `examples/live_updates.py` с безопасными handlers для ручной проверки
+  updates, API методов, uploads, keyboards и formatting;
+- подробный manual smoke-test plan без ложных отметок о live-прохождении.
+
 ### Изменено
 
+- покрытие API повторно сверено с актуальной OpenAPI `0.0.33`, schema commit
+  `5af13bd` и живой документацией MAX от 6 октября 2026 года;
+- документация фиксирует удалённый `POST /chats/{chatId}/members`, Webhook-only
+  статус `bot_admin_permissions_changed`, ограничения uploads и известное
+  поведение notification-only callbacks;
 - уточнена настройка TLS для MAX API: системный trust store, отдельный CA
   bundle и диагностический `verify_ssl=False`;
 - указано, что собственный сертификат для исходящих MAX API-запросов выпускать

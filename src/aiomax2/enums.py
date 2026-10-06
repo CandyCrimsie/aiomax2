@@ -27,6 +27,11 @@ class ChatAdminPermission(StrEnum):
     DELETE = "delete"
     CAN_CALL = "can_call"
     VIEW_STATS = "view_stats"
+    # Legacy values can still occur in MAX responses according to the live
+    # documentation. New admin assignments should use WRITE/EDIT/DELETE.
+    POST_EDIT_DELETE_MESSAGE = "post_edit_delete_message"
+    EDIT_MESSAGE = "edit_message"
+    DELETE_MESSAGE = "delete_message"
 
 
 class TextFormat(StrEnum):

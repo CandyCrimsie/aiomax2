@@ -26,6 +26,7 @@ nav:
       - Быстрый старт: quickstart.md
       - Long Polling: polling.md
       - Webhook: webhook.md
+      - Live smoke-test: live-testing.md
   - Обработка событий:
       - Dispatcher и Router: router.md
       - Handlers: handlers.md

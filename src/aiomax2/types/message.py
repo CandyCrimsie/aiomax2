@@ -76,7 +76,9 @@ class NewMessageBody(MAXObject):
 class NewCommentBody(MAXObject):
     text: str | None = Field(default=None, max_length=4000)
     link: NewMessageLink | None = None
-    notify: bool | None = None
+    # Kept as a compatibility input for 0.1.x. MAX NewCommentBody has no
+    # ``notify`` property, so it must never be serialized onto the wire.
+    notify: bool | None = Field(default=None, exclude=True)
     format: TextFormat | None = None
 
 

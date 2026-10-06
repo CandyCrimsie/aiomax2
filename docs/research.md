@@ -1,14 +1,15 @@
 # Исследование и соответствие API
 
-Дата исследования: 5 октября 2026. Источники в порядке приоритета:
+Дата последней сверки: 6 октября 2026. Источники в порядке приоритета:
 
-1. [Официальная документация MAX Bot API](https://dev.max.ru/docs-api)
+1. Воспроизводимое поведение реального MAX API
 2. [Официальная OpenAPI-схема](https://github.com/max-messenger/api-schema)
-3. Наблюдаемое поведение API, фиксируемое integration fixtures
+3. [Официальная документация MAX Bot API](https://dev.max.ru/docs-api)
 4. Архивный [dpnspn/aiomax](https://github.com/dpnspn/aiomax)
 5. [aiogram 3.x](https://github.com/aiogram/aiogram) только как ориентир DX
 
-Проверенная схема — OpenAPI 3.0 версии `0.0.33`. Base URL:
+Проверенная schema repository HEAD — `1a4a502`; схема OpenAPI 3.0 версии
+`0.0.33` не менялась относительно предыдущей проверки. Base URL:
 `https://platform-api2.max.ru`. Токен передаётся без изменений в заголовке
 `Authorization`, без префикса `Bearer`.
 

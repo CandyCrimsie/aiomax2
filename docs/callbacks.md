@@ -59,9 +59,11 @@ aiomax2 сериализует notification-only по текущему MAX API/O
 await callback_query.answer(notification="Отменено")
 ```
 
-Фактическое отображение такого уведомления зависит от MAX server/client и
-требует live verification: один smoke-test не показал уведомление, хотя
-notification + message update отобразились корректно.
+Фактическое отображение такого уведомления зависит от MAX server/client.
+Предоставленный live smoke-test получил `success=true`, `message=null`, но не
+показал notification-only в Web, Android и iOS; notification + message update
+отобразился. Это зафиксировано как runtime peculiarity MAX, а не маскируется
+автоматической подстановкой `message`.
 
 Обычный метод возвращает `bool`. Если нужен диагностический `message` при
 `success=false`, вызовите `bot.answer_callback_result(...)` и получите

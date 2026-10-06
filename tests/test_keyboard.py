@@ -81,6 +81,38 @@ def test_button_callback_data_maps_to_payload_only() -> None:
     assert "callback_data" not in button
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "expected"),
+    [
+        ({"callback_data": "confirm"}, {"type": "callback", "payload": "confirm"}),
+        ({"url": "https://dev.max.ru"}, {"type": "link", "url": "https://dev.max.ru"}),
+        ({"request_contact": True}, {"type": "request_contact"}),
+        (
+            {"request_geo_location": True, "quick": True},
+            {"type": "request_geo_location", "quick": True},
+        ),
+        ({"message": True}, {"type": "message"}),
+        ({"clipboard": "AIOMAX2"}, {"type": "clipboard", "payload": "AIOMAX2"}),
+        (
+            {"web_app": "app", "app_payload": "screen-1", "contact_id": 42},
+            {
+                "type": "open_app",
+                "web_app": "app",
+                "payload": "screen-1",
+                "contact_id": 42,
+            },
+        ),
+    ],
+)
+def test_generic_button_supports_every_max_button_type(
+    kwargs: dict[str, object], expected: dict[str, object]
+) -> None:
+    markup = InlineKeyboardBuilder().button(text="Button", **kwargs).as_markup()
+    serialized = markup.api_dump()["payload"]["buttons"][0][0]
+
+    assert serialized == {"text": "Button", **expected}
+
+
 def test_button_requires_exactly_one_action() -> None:
     builder = InlineKeyboardBuilder()
 

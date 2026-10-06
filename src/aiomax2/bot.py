@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import ssl
+import warnings
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import IO, Any
@@ -21,7 +22,6 @@ from aiomax2.types import (
     CallbackAnswer,
     Chat,
     ChatAdmin,
-    ChatAdminsList,
     ChatMember,
     ChatMembersList,
     CommentMessage,
@@ -240,10 +240,8 @@ class Bot:
         payload = {
             "commands": [
                 _dump(command) if isinstance(command, BaseModel) else dict(command)
-                for command in commands
+                for command in commands or ()
             ]
-            if commands is not None
-            else None
         }
         result = BotCommandsInfo.model_validate(
             await self.request("PATCH", "/me/commands", json=payload)
@@ -315,11 +313,11 @@ class Bot:
     async def leave_chat(self, chat_id: int) -> bool:
         return _success(await self.request("DELETE", f"/chats/{chat_id}/members/me"))
 
-    async def get_admins(self, chat_id: int) -> list[ChatAdmin]:
-        result = ChatAdminsList.model_validate(
+    async def get_admins(self, chat_id: int) -> list[ChatMember]:
+        result = ChatMembersList.model_validate(
             await self.request("GET", f"/chats/{chat_id}/members/admins")
         )
-        return result.admins
+        return result.members
 
     async def set_admins(
         self,
@@ -673,6 +671,12 @@ class Bot:
         format: TextFormat | str | None = None,
         disable_link_preview: bool | None = None,
     ) -> CommentMessage:
+        if notify is not None:
+            warnings.warn(
+                "notify is not supported by MAX NewCommentBody and is ignored",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         body = NewCommentBody(
             text=text,
             link=link,
@@ -699,6 +703,12 @@ class Bot:
         notify: bool | None = None,
         format: TextFormat | str | None = None,
     ) -> bool:
+        if notify is not None:
+            warnings.warn(
+                "notify is not supported by MAX NewCommentBody and is ignored",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         body = NewCommentBody(text=text, link=link, notify=notify, format=format)
         return _success(
             await self.request(

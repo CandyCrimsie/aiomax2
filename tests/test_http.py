@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import ssl
-import time
 import warnings
 from collections.abc import AsyncIterator
 from typing import Any
@@ -341,16 +340,24 @@ async def test_custom_session_with_ssl_disabled_gets_library_ssl_context(
 @pytest.mark.asyncio
 async def test_multiple_429_responses_honor_retry_after(
     api_server: tuple[str, dict[str, int]],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     base_url, state = api_server
     transport = AiohttpSession("token", base_url=base_url, max_retries=2)
-    started = time.monotonic()
+    delays: list[float] = []
+    original_sleep = asyncio.sleep
+
+    async def record_sleep(delay: float) -> None:
+        delays.append(delay)
+        await original_sleep(0)
+
+    monkeypatch.setattr("aiomax2.client.session.asyncio.sleep", record_sleep)
 
     result = await transport.request("GET", "/limited-many")
 
     assert result == {"success": True}
     assert state["limited_many"] == 3
-    assert time.monotonic() - started >= 0.018
+    assert delays == [0.01, 0.01]
     await transport.close()
 
 
@@ -376,13 +383,28 @@ async def test_thirty_concurrent_api_requests_share_global_limiter(
 ) -> None:
     base_url, state = api_server
     transport = AiohttpSession("token", base_url=base_url, rate_limit=30)
-    transport.rate_limiter = AsyncRateLimiter(30, period=0.05)
-    started = time.monotonic()
+    now = 0.0
+    delays: list[float] = []
+
+    def clock() -> float:
+        return now
+
+    async def sleep(delay: float) -> None:
+        nonlocal now
+        delays.append(delay)
+        now += delay
+
+    transport.rate_limiter = AsyncRateLimiter(
+        30,
+        period=0.05,
+        clock=clock,
+        sleep=sleep,
+    )
 
     await asyncio.gather(*(transport.request("GET", "/concurrent") for _ in range(31)))
 
     assert state["concurrent"] == 31
-    assert time.monotonic() - started >= 0.04
+    assert delays == [0.05]
     await transport.close()
 
 

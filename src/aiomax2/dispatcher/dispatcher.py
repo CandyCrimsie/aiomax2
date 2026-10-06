@@ -131,9 +131,7 @@ class Dispatcher(Router):
                             if handle_as_tasks:
                                 task = asyncio.create_task(coroutine)
                                 self._handle_update_tasks.add(task)
-                                task.add_done_callback(
-                                    self._handle_update_tasks.discard
-                                )
+                                task.add_done_callback(self._polling_task_done)
                             else:
                                 await coroutine
                     except asyncio.CancelledError:
@@ -155,6 +153,21 @@ class Dispatcher(Router):
                 self._stop_signal = None
                 if close_bot_session:
                     await bot.close()
+
+    def _polling_task_done(self, task: asyncio.Task[Any]) -> None:
+        self._handle_update_tasks.discard(task)
+        if task.cancelled():
+            return
+        exception = task.exception()
+        if exception is not None:
+            logger.error(
+                "MAX polling update handler failed",
+                exc_info=(
+                    type(exception),
+                    exception,
+                    exception.__traceback__,
+                ),
+            )
 
     async def stop_polling(self) -> None:
         if self._stop_signal is None:

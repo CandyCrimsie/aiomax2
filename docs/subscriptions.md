@@ -35,3 +35,8 @@ await bot.subscribe(
 Активная Webhook-подписка несовместима с `GET /updates`. Перед локальным Long
 Polling удалите подписку. Требования к HTTPS, secret и timeout описаны в
 [Webhook guide](webhook.md).
+
+Актуальная документация MAX помечает `bot_admin_permissions_changed` как
+Webhook-only: в `resolve_used_update_types()` событие учитывается, но через
+Long Polling пока не доставляется. Полная таблица событий и ручных способов
+воспроизведения приведена в [live smoke-test](live-testing.md).

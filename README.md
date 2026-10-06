@@ -268,6 +268,7 @@ bot = Bot(
 - [Загрузка файлов](https://candycrimsie.github.io/aiomax2/uploads/)
 - [Обработка ошибок](https://candycrimsie.github.io/aiomax2/errors/)
 - [Покрытие MAX API](https://candycrimsie.github.io/aiomax2/api-coverage/)
+- [Live smoke-test](https://candycrimsie.github.io/aiomax2/live-testing/)
 
 Готовые примеры находятся в каталоге
 [`examples`](https://github.com/CandyCrimsie/aiomax2/tree/main/examples).

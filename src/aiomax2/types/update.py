@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, Literal
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 
 from aiomax2.enums import ChatAdminPermission
 
@@ -132,7 +132,7 @@ class BotStartedUpdate(Update):
     update_type: Literal["bot_started"] = "bot_started"
     chat_id: int
     user: User
-    payload: str | None = None
+    payload: str | None = Field(default=None, max_length=512)
     user_locale: str | None = None
 
 

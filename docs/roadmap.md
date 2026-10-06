@@ -1,5 +1,22 @@
 # Roadmap
 
+## `0.1.0a3` — stabilization и live coverage
+
+- [x] Повторная сверка OpenAPI `0.0.33` и живой документации MAX
+- [x] Conformance matrix всех 19 update discriminators
+- [x] Полный typed Dispatcher и FastAPI Webhook round-trip для каждого update
+- [x] Forward-compatible unknown update и extra-fields tests
+- [x] Audit high-level Bot endpoint shapes и response models
+- [x] Исправление `get_admins()` под `ChatMembersList.members`
+- [x] Исключение неподдерживаемого `notify` из comment wire payload
+- [x] Controlled HTTP 400 для malformed Webhook payload
+- [x] Получение и logging исключений background polling handlers
+- [x] Live Webhook/API harness и воспроизводимый smoke-test plan
+- [ ] Ручная live-проверка всех update types и ещё не покрытых endpoints
+
+Версия может перейти к release candidate после ручного smoke-test; пункты live
+не помечаются выполненными автоматическими tests.
+
 ## MVP (`0.1.0a2`)
 
 - [x] Исследование официального API, архивного `aiomax` и aiogram 3.x

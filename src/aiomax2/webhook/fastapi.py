@@ -2,7 +2,7 @@ from typing import Any
 
 from aiomax2.bot import Bot
 from aiomax2.dispatcher import Dispatcher
-from aiomax2.exceptions import WebhookSecretError
+from aiomax2.exceptions import WebhookPayloadError, WebhookSecretError
 
 from .handler import WebhookHandler
 
@@ -34,6 +34,10 @@ def create_webhook_router(
         except WebhookSecretError as exc:
             raise HTTPException(
                 status_code=403, detail="invalid webhook secret"
+            ) from exc
+        except WebhookPayloadError as exc:
+            raise HTTPException(
+                status_code=400, detail="invalid MAX webhook payload"
             ) from exc
         return Response(status_code=200)
 

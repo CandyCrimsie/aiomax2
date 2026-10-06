@@ -52,6 +52,12 @@ Dispatcher автоматически собирает типы, для кото
 
 `handle_as_tasks=True` обрабатывает updates конкурентно. При `False` следующий
 update начнёт обрабатываться только после завершения текущего.
+Исключения background handlers извлекаются и логируются, поэтому asyncio не
+оставляет предупреждение `Task exception was never retrieved`.
+
+`bot_admin_permissions_changed` пока доставляется MAX только через Webhook.
+Наличие observer в `resolve_used_update_types()` не делает событие доступным в
+Long Polling; для его проверки используйте Webhook.
 
 ## Остановка
 
@@ -64,4 +70,3 @@ await dp.stop_polling()
 По умолчанию `start_polling()` ждёт активные handler tasks и закрывает `Bot`.
 Если жизненным циклом transport управляет приложение, передайте
 `close_bot_session=False` и вызовите `await bot.close()` самостоятельно.
-

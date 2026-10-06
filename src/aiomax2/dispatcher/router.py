@@ -11,31 +11,12 @@ from aiomax2.types import (
     MessageEditedUpdate,
     Update,
 )
+from aiomax2.types.update import UPDATE_MODELS
 
 from .event import UNHANDLED, EventObserver
 from .middleware import wrap_middlewares
 
-EVENT_NAMES = (
-    "message_created",
-    "message_callback",
-    "message_edited",
-    "message_removed",
-    "comment_created",
-    "comment_edited",
-    "comment_removed",
-    "bot_added",
-    "bot_removed",
-    "user_added",
-    "user_removed",
-    "bot_started",
-    "bot_stopped",
-    "dialog_cleared",
-    "dialog_removed",
-    "dialog_muted",
-    "dialog_unmuted",
-    "chat_title_changed",
-    "bot_admin_permissions_changed",
-)
+EVENT_NAMES = tuple(UPDATE_MODELS)
 
 
 class Router:

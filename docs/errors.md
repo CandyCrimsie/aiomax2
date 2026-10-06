@@ -12,6 +12,7 @@
 | `ServerError` | HTTP 5xx |
 | `ValidationError` | локальная проверка параметров не пройдена |
 | `WebhookSecretError` | secret Webhook отсутствует или неверен |
+| `WebhookPayloadError` | тело Webhook не является валидным MAX Update |
 
 ```python
 from aiomax2.exceptions import NotFoundError, RateLimitError
@@ -43,3 +44,7 @@ Network/5xx retries по умолчанию выполняются только 
 логируются на уровне polling loop; в Webhook приводят к неуспешному HTTP
 ответу framework. Добавляйте application-level middleware для logging и
 наблюдаемости.
+
+FastAPI adapter возвращает `400` для malformed JSON, не-object JSON и Update,
+не прошедшего Pydantic validation. Ошибка application handler не маскируется
+под bad request и сохраняет HTTP `500` semantics.

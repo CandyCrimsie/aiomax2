@@ -19,7 +19,7 @@ pip install aiomax2
 Для установки конкретной версии:
 
 ```bash
-pip install aiomax2==0.1.0a2
+pip install aiomax2==0.1.0a3
 ```
 
 Проверить установленную версию:

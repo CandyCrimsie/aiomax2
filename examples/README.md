@@ -30,6 +30,7 @@ python examples/basic_bot.py
 | `subscriptions.py` | регистрация Webhook-подписки |
 | `fastapi_webhook.py` | FastAPI, lifespan и Webhook adapter |
 | `modes.py` | выбор Polling/Webhook через `MAX_MODE` |
+| `live_updates.py` | полный Webhook harness для update/API smoke-test 0.1.0a3 |
 | `errors.py` | типизированные API/network ошибки |
 | `custom_session.py` | пользовательская `aiohttp.ClientSession` |
 | `custom_ca.py` | дополнительный CA bundle |
