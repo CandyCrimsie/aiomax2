@@ -17,10 +17,14 @@
 pip install "aiomax2 @ git+https://github.com/CandyCrimsie/aiomax2.git"
 ```
 
-FastAPI adapter является необязательной зависимостью:
+Обычная установка сразу включает `aiohttp`, Pydantic, FastAPI и Uvicorn.
+Она поддерживает и Long Polling, и Webhook: режим доставки updates выбирается
+в коде или deployment configuration, а не через package extra.
+
+После публикации на PyPI будет достаточно:
 
 ```bash
-pip install "aiomax2[fastapi] @ git+https://github.com/CandyCrimsie/aiomax2.git"
+pip install aiomax2
 ```
 
 ## Установка для разработки

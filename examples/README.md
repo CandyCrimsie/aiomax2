@@ -27,6 +27,7 @@ python examples/basic_bot.py
 | `comments.py` | отправка комментария к посту |
 | `subscriptions.py` | регистрация Webhook-подписки |
 | `fastapi_webhook.py` | FastAPI, lifespan и Webhook adapter |
+| `modes.py` | выбор Polling/Webhook через `MAX_MODE` |
 | `errors.py` | типизированные API/network ошибки |
 | `custom_session.py` | пользовательская `aiohttp.ClientSession` |
 | `custom_ca.py` | дополнительный CA bundle |
@@ -34,7 +35,9 @@ python examples/basic_bot.py
 Для `fastapi_webhook.py`:
 
 ```bash
-python -m pip install -e ".[fastapi]"
+export MAX_BOT_TOKEN="..."
+export MAX_WEBHOOK_BASE_URL="https://bot.example.ru"
+export MAX_WEBHOOK_SECRET="replace-with-random-secret"
 uvicorn examples.fastapi_webhook:app --host 127.0.0.1 --port 8000
 ```
 
@@ -45,5 +48,14 @@ uvicorn examples.fastapi_webhook:app --host 127.0.0.1 --port 8000
 python -m pip install -e ".[dev]"
 ```
 
-Установите `MAX_WEBHOOK_URL` для автоматической регистрации подписки при
-startup и `MAX_WEBHOOK_SECRET` для проверки входящих запросов.
+В `fastapi_webhook.py` локальный `WEBHOOK_PATH = "/webhook"` добавляется к
+`MAX_WEBHOOK_BASE_URL` при регистрации подписки. Для переключаемого примера:
+
+```bash
+MAX_MODE=polling python examples/modes.py
+MAX_MODE=webhook uvicorn examples.modes:app --host 127.0.0.1 --port 8000
+```
+
+Polling и Webhook нельзя запускать одновременно для одного бота.
+Перед переходом с Webhook на Polling удалите активную MAX-подписку через
+`bot.unsubscribe(webhook_url)`; одна смена `MAX_MODE` не меняет состояние MAX.

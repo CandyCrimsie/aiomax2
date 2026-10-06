@@ -15,13 +15,13 @@ def create_webhook_router(
     secret: str | None = None,
     **feed_data: Any,
 ) -> Any:
-    """Create a FastAPI `APIRouter` without making FastAPI a core dependency."""
+    """Create a FastAPI `APIRouter` for MAX Webhook updates."""
 
     try:
         from fastapi import APIRouter, HTTPException, Request, Response
     except ImportError as exc:
         raise RuntimeError(
-            "FastAPI integration requires `pip install aiomax2[fastapi]`"
+            "FastAPI is a standard aiomax2 dependency; reinstall aiomax2"
         ) from exc
 
     router = APIRouter()

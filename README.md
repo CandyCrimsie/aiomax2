@@ -51,8 +51,8 @@
 - Python **3.12+**
 - `aiohttp`
 - Pydantic 2
-
-Для Webhook-интеграции с FastAPI доступен optional dependency `fastapi`.
+- FastAPI
+- Uvicorn
 
 ---
 
@@ -65,10 +65,12 @@ GitHub:
 pip install "aiomax2 @ git+https://github.com/CandyCrimsie/aiomax2.git"
 ```
 
-С поддержкой FastAPI:
+Эта единственная установка включает Long Polling, Webhook, FastAPI и Uvicorn.
+Режим доставки updates выбирается в приложении или deployment configuration,
+а не через package extra. После публикации на PyPI будет достаточно:
 
 ```bash
-pip install "aiomax2[fastapi] @ git+https://github.com/CandyCrimsie/aiomax2.git"
+pip install aiomax2
 ```
 
 Для локальной разработки:
@@ -289,12 +291,17 @@ async def process_name(message: Message, state: FSMContext) -> None:
 
 ```python
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
 from aiomax2 import Bot, Dispatcher, Router
+
+WEBHOOK_PATH = "/webhook"
+MAX_WEBHOOK_BASE_URL = os.environ["MAX_WEBHOOK_BASE_URL"].rstrip("/")
+MAX_WEBHOOK_SECRET = os.environ["MAX_WEBHOOK_SECRET"]
+WEBHOOK_URL = f"{MAX_WEBHOOK_BASE_URL}{WEBHOOK_PATH}"
 
 bot = Bot(os.environ["MAX_BOT_TOKEN"])
 dp = Dispatcher()
@@ -304,37 +311,51 @@ dp.include_router(router)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    yield
-
-    await bot.close()
-    await dp.close()
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    try:
+        await bot.subscribe(
+            WEBHOOK_URL,
+            secret=MAX_WEBHOOK_SECRET,
+            update_types=dp.resolve_used_update_types(),
+        )
+        yield
+    finally:
+        await bot.close()
+        await dp.close()
 
 
 app = FastAPI(lifespan=lifespan)
 
 app.include_router(
     dp.webhook_router(
-        "/webhook",
+        WEBHOOK_PATH,
         bot=bot,
-        secret=os.environ["MAX_WEBHOOK_SECRET"],
+        secret=MAX_WEBHOOK_SECRET,
     )
 )
 ```
 
-Webhook можно зарегистрировать через `Bot`:
-
-```python
-await bot.subscribe(
-    "https://bot.example.ru/webhook",
-    secret="replace-with-a-random-secret",
-    update_types=[
-        "message_created",
-        "message_callback",
-        "bot_started",
-    ],
-)
+```bash
+export MAX_BOT_TOKEN="..."
+export MAX_WEBHOOK_BASE_URL="https://bot.example.ru"
+export MAX_WEBHOOK_SECRET="replace-with-random-secret"
 ```
+
+`webhook_router()` получает только локальный route path `/webhook`, а
+`subscribe()` — полный публичный HTTPS URL. Например:
+
+```text
+MAX -> https://bot.example.ru/webhook
+    -> reverse proxy
+    -> 127.0.0.1:5000/webhook
+    -> FastAPI
+    -> aiomax2 Dispatcher
+```
+
+Для одной кодовой базы режим можно выбрать через `MAX_MODE=polling` или
+`MAX_MODE=webhook`; готовый pattern находится в
+[`examples/modes.py`](examples/modes.py). Оба режима одновременно не
+запускаются.
 
 MAX ожидает `200 OK` от Webhook не позднее чем через 30 секунд, поэтому долгие
 CPU-bound и blocking операции не следует выполнять непосредственно внутри

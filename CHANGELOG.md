@@ -20,6 +20,9 @@ Semantic Versioning с pre-release суффиксами.
 - custom `SSLContext` без проверки hostname или сертификата отклоняется;
 - единый per-target limiter документирован как консервативная клиентская
   политика, а process-local и multi-worker ограничения описаны явно;
+- FastAPI и Uvicorn включены в стандартную установку, optional extra удалён;
+- Webhook configuration упрощена до public base URL и локального route path;
+- lifespan annotations обновлены с `AsyncIterator` на `AsyncGenerator`;
 - пользовательская документация и примеры переведены на русский язык.
 
 ### Добавлено
@@ -29,6 +32,7 @@ Semantic Versioning с pre-release суффиксами.
 - transport tests для TLS override, custom sessions, upload authorization и
   исчерпания повторов после `429`;
 - полное руководство по Webhook, Long Polling, FSM, middleware и rate limits;
+- пример выбора Polling или Webhook через `MAX_MODE` для одной кодовой базы;
 - MkDocs configuration, официальный GitHub Pages workflow и community files.
 
 ## [0.1.0a1] - 2026-10-05

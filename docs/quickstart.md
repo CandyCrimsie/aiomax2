@@ -57,3 +57,21 @@ python bot.py
 Пример использует Long Polling, чтобы локальный запуск не требовал публичного
 HTTPS endpoint. В production перейдите на [Webhook](webhook.md).
 
+## Одна кодовая база для двух режимов
+
+Выбирать режим можно через deployment configuration, не создавая отдельный
+`Bot`/`Dispatcher`/`Router` stack:
+
+```bash
+MAX_MODE=polling python examples/modes.py
+```
+
+```bash
+MAX_MODE=webhook uvicorn examples.modes:app --host 127.0.0.1 --port 8000
+```
+
+Готовый application pattern находится в `examples/modes.py`. Он использует
+существующие `start_polling()` и `webhook_router()` и намеренно не запускает
+Polling и Webhook одновременно. Переключение переменной не удаляет уже
+зарегистрированную на стороне MAX Webhook-подписку: перед переходом на Polling
+удалите её отдельным setup-командой через `bot.unsubscribe(webhook_url)`.
