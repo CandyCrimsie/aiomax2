@@ -96,9 +96,7 @@ from aiomax2 import Bot
 
 token = os.environ["MAX_BOT_TOKEN"]
 
-async with aiohttp.ClientSession(
-    headers={"User-Agent": "my-max-bot/1.0"}
-) as session:
+async with aiohttp.ClientSession(headers={"User-Agent": "my-max-bot/1.0"}) as session:
     bot = Bot(token, session=session)
 
     try:
