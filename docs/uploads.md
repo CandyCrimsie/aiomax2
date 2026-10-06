@@ -65,8 +65,7 @@ bot = Bot(
 
 Другие ответы HTTP 400 не повторяются. Неоднозначная network failure обычного
 `POST /messages` также не становится основанием для повтора: это могло бы
-создать дубликат. Binary POST на одноразовый upload URL никогда не повторяется
-этим механизмом.
+создать дубликат. Binary POST на upload URL никогда не повторяется этим механизмом.
 
 Каждая фактическая попытка отправки, редактирования или callback message update
 заново проходит через per-target limiter. Первый запрос acquire выполняет один
@@ -81,6 +80,10 @@ API-вызов `POST /uploads` всегда получает token обычны�
 
 Проверка TLS по умолчанию остаётся включённой. Явный `verify_ssl=False`
 применяется и к upload hosts; последствия описаны в
-[руководстве по сертификатам](certificates.md). Resumable upload пока не реализован; high-level helpers используют multipart
-upload. Поддержка resumable upload отслеживается отдельно в roadmap. Поведение `attachment.not.ready` соответствует
+[руководстве по сертификатам](certificates.md).
+
+Resumable upload пока не реализован; high-level helpers используют multipart
+upload. Поддержка resumable upload отслеживается отдельно в roadmap.
+
+Поведение `attachment.not.ready` соответствует
 [официальному описанию `POST /uploads`](https://dev.max.ru/docs-api/methods/POST/uploads).

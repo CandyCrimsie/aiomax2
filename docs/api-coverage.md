@@ -37,10 +37,9 @@
 `Bot.request()` остаётся для диагностики и будущих endpoints, но удалённая
 возможность не заявляется поддерживаемой.
 
-`upload_media` реализует документированный one-shot multipart workflow.
+`upload_media` реализует документированный multipart workflow.
 `attachment.not.ready` обрабатывается bounded retry при последующей отправке
-или правке сообщения; binary upload не повторяется. Resumable/chunked вариант
-отложен: протокол зависит от upload host и не описан полностью в OpenAPI.
+или правке сообщения; binary upload автоматически не повторяется.
 
 ### Resumable upload
 
