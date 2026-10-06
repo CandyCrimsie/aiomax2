@@ -18,6 +18,8 @@ python examples/basic_bot.py
 | `commands.py` | `Command`, `CommandStart`, `CommandObject.args` |
 | `filters.py` | сравнение, `startswith` и `contains` |
 | `callbacks.py` | inline keyboard и callback answer |
+| `keyboards.py` | builder, все типы MAX-кнопок и `reply_markup` |
+| `formatting.py` | HTML и MAX Markdown через `TextFormat` |
 | `message_actions.py` | `answer`, `reply`, `edit_text`, `delete` |
 | `fsm.py` | диалог имя → возраст |
 | `middleware.py` | outer middleware и context injection |

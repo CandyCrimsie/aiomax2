@@ -33,8 +33,13 @@ Network/5xx retries по умолчанию выполняются только 
 методов. Неидемпотентный `POST` не повторяется после неоднозначного сетевого
 сбоя, чтобы не создать дубликат.
 
+Исключение — официальный ответ HTTP 400 с точным кодом
+`attachment.not.ready`: MAX сообщает, что attachment ещё обрабатывается, и
+рекомендует повторить отправку с увеличением интервала. Этот bounded retry
+работает только для message send/edit и callback message update с attachment;
+остальные HTTP 400 и binary upload не повторяются.
+
 Ошибки handler сейчас передаются вызывающему pipeline. В Long Polling они
 логируются на уровне polling loop; в Webhook приводят к неуспешному HTTP
 ответу framework. Добавляйте application-level middleware для logging и
 наблюдаемости.
-

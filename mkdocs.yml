@@ -32,7 +32,9 @@ nav:
       - Фильтры: filters.md
       - Команды: commands.md
       - Magic filter F: magic-filter.md
-      - Callback и клавиатуры: callbacks.md
+      - Callback: callbacks.md
+      - Inline-клавиатуры: keyboards.md
+      - Форматирование текста: formatting.md
       - Middleware: middleware.md
       - FSM: fsm.md
   - MAX API:
@@ -54,4 +56,3 @@ markdown_extensions:
       anchor_linenums: true
   - pymdownx.superfences
   - tables
-

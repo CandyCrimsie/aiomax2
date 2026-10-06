@@ -84,7 +84,17 @@ async def started(event: BotStartedUpdate) -> None:
 
 ## Клавиатуры
 
-Telegram использует reply markup, а MAX — attachment:
+На wire MAX использует attachment. Для знакомого DX можно использовать
+`InlineKeyboardBuilder` и convenience-параметр `reply_markup`:
+
+```python
+builder = InlineKeyboardBuilder()
+builder.button(text="OK", callback_data="confirm")
+await message.answer("Выберите", reply_markup=builder.as_markup())
+```
+
+Это не Telegram Reply Keyboard: внутри всё равно создаётся MAX
+`inline_keyboard` attachment. Low-level вариант также сохранён:
 
 ```python
 keyboard = InlineKeyboardAttachmentRequest(
@@ -93,8 +103,8 @@ keyboard = InlineKeyboardAttachmentRequest(
 await message.answer("Выберите", attachments=[keyboard])
 ```
 
-Используйте MAX-классы кнопок и их реальные payload, не Telegram
-`InlineKeyboardMarkup`.
+Используйте реальные типы кнопок и payload MAX. Telegram Reply Keyboard,
+`ReplyKeyboardRemove` и `ForceReply` не эмулируются.
 
 ## Events, которых нет в Telegram
 

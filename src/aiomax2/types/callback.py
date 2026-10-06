@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 from aiomax2.enums import TextFormat
 
-from .attachments import AttachmentRequest
+from .attachments import AttachmentRequest, InlineKeyboardAttachmentRequest
 from .base import MAXObject
 from .message import Message, NewMessageBody
 from .user import User
@@ -26,6 +26,7 @@ class Callback(MAXObject):
         message: NewMessageBody | None = None,
         text: str | None = None,
         attachments: list[AttachmentRequest | dict[str, Any]] | None = None,
+        reply_markup: InlineKeyboardAttachmentRequest | None = None,
         format: TextFormat | str | None = None,
         disable_link_preview: bool | None = None,
     ) -> bool:
@@ -39,6 +40,7 @@ class Callback(MAXObject):
             message=message,
             text=text,
             attachments=attachments,
+            reply_markup=reply_markup,
             format=format,
             disable_link_preview=disable_link_preview,
             chat_id=chat_id,

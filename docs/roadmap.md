@@ -15,6 +15,9 @@
 - [x] Webhook core и FastAPI integration
 - [x] Long Polling для разработки
 - [x] Multipart media upload helpers
+- [x] Inline keyboard builder и `reply_markup` convenience
+- [x] Bounded retry для `attachment.not.ready`
+- [x] Документация HTML и MAX Markdown
 - [x] Unit и mock-server integration tests
 - [x] Русскоязычная документация, примеры и migration guide
 
@@ -23,7 +26,6 @@
 - Redis-backed distributed rate limiter для multi-worker deployments
 - Redis FSM storage и настраиваемая event isolation
 - Background Webhook processing и queue-backed production strategy
-- Проверка готовности attachments с ограниченным backoff
 - Resumable/chunked upload в дополнение к multipart helper
 - aiohttp/Starlette adapters и дополнительные deployment recipes
 - Contract fixtures из реальных ответов MAX
@@ -32,7 +34,7 @@
 
 - Schema-diff CI относительно официального репозитория
 - Сгенерированные conformance tests request/response моделей
-- Callback-data factory и keyboard builder
+- Callback-data factory
 - API client middleware и observability hooks
 
 ## Before stable `1.0`

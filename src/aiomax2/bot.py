@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from aiomax2.client import AiohttpSession, KeyedRateLimiter
 from aiomax2.enums import SenderAction, TextFormat, UploadType
-from aiomax2.exceptions import ValidationError
+from aiomax2.exceptions import BadRequestError, ValidationError
 from aiomax2.types import (
     AttachmentRequest,
     AudioAttachmentRequest,
@@ -29,6 +29,7 @@ from aiomax2.types import (
     FileAttachmentRequest,
     GetPinnedMessageResult,
     GetSubscriptionsResult,
+    InlineKeyboardAttachmentRequest,
     Message,
     MessageList,
     NewCommentBody,
@@ -59,6 +60,27 @@ def _success(payload: Any) -> bool:
         return True
     result = SimpleQueryResult.model_validate(payload)
     return result.success
+
+
+def _with_reply_markup(
+    attachments: list[AttachmentRequest | dict[str, Any]] | None,
+    reply_markup: InlineKeyboardAttachmentRequest | None,
+) -> list[AttachmentRequest | dict[str, Any]] | None:
+    if reply_markup is None:
+        return attachments
+    if any(
+        (
+            attachment.type
+            if isinstance(attachment, BaseModel)
+            else attachment.get("type")
+        )
+        == "inline_keyboard"
+        for attachment in attachments or ()
+    ):
+        raise ValidationError(
+            "reply_markup cannot be combined with an inline_keyboard in attachments"
+        )
+    return [*(attachments or []), reply_markup]
 
 
 def _find_token(value: Any) -> str | None:
@@ -93,7 +115,13 @@ class Bot:
         ca_file: str | Path | None = None,
         session: aiohttp.ClientSession | None = None,
         transport: AiohttpSession | None = None,
+        attachment_retries: int = 3,
+        attachment_retry_base_delay: float = 0.5,
     ) -> None:
+        if attachment_retries < 0:
+            raise ValueError("attachment_retries cannot be negative")
+        if attachment_retry_base_delay < 0:
+            raise ValueError("attachment_retry_base_delay cannot be negative")
         self.token = token
         self.transport = transport or AiohttpSession(
             token,
@@ -111,6 +139,8 @@ class Bot:
         # documented limits, at the cost of throughput in mixed workloads.
         self._target_limiter = KeyedRateLimiter(2, 1.0)
         self._me: BotInfo | None = None
+        self.attachment_retries = attachment_retries
+        self.attachment_retry_base_delay = attachment_retry_base_delay
 
     def __repr__(self) -> str:
         suffix = self.token[-4:] if len(self.token) >= 4 else "****"
@@ -162,6 +192,36 @@ class Bot:
         else:
             target = "unknown"
         await self._target_limiter.acquire(target)
+
+    async def _request_with_attachment_retry(
+        self,
+        method: str,
+        path: str,
+        *,
+        attachments_present: bool,
+        **kwargs: Any,
+    ) -> Any:
+        """Retry only MAX's explicit, safe ``attachment.not.ready`` response."""
+
+        retry_index = 0
+        while True:
+            try:
+                return await self.request(method, path, **kwargs)
+            except BadRequestError as error:
+                code = (
+                    error.payload.get("code")
+                    if isinstance(error.payload, Mapping)
+                    else None
+                )
+                if (
+                    not attachments_present
+                    or code != "attachment.not.ready"
+                    or retry_index >= self.attachment_retries
+                ):
+                    raise
+                delay = self.attachment_retry_base_delay * (2**retry_index)
+                retry_index += 1
+                await asyncio.sleep(delay)
 
     async def get_my_info(self) -> BotInfo:
         result = BotInfo.model_validate(await self.request("GET", "/me"))
@@ -489,6 +549,7 @@ class Bot:
         user_id: int | None = None,
         chat_id: int | None = None,
         attachments: list[AttachmentRequest | dict[str, Any]] | None = None,
+        reply_markup: InlineKeyboardAttachmentRequest | None = None,
         link: NewMessageLink | None = None,
         notify: bool | None = None,
         format: TextFormat | str | None = None,
@@ -496,18 +557,20 @@ class Bot:
     ) -> Message:
         if (user_id is None) == (chat_id is None):
             raise ValidationError("pass exactly one of user_id or chat_id")
+        merged_attachments = _with_reply_markup(attachments, reply_markup)
         await self._acquire_target_limit(chat_id=chat_id, user_id=user_id)
         body = NewMessageBody(
             text=text,
-            attachments=attachments,
+            attachments=merged_attachments,
             link=link,
             notify=notify,
             format=format,
         )
         result = SendMessageResult.model_validate(
-            await self.request(
+            await self._request_with_attachment_retry(
                 "POST",
                 "/messages",
+                attachments_present=bool(merged_attachments),
                 params={
                     "user_id": user_id,
                     "chat_id": chat_id,
@@ -524,24 +587,27 @@ class Bot:
         *,
         text: str | None = None,
         attachments: list[AttachmentRequest | dict[str, Any]] | None = None,
+        reply_markup: InlineKeyboardAttachmentRequest | None = None,
         link: NewMessageLink | None = None,
         notify: bool | None = None,
         format: TextFormat | str | None = None,
         chat_id: int | None = None,
         user_id: int | None = None,
     ) -> bool:
+        merged_attachments = _with_reply_markup(attachments, reply_markup)
         await self._acquire_target_limit(chat_id=chat_id, user_id=user_id)
         body = NewMessageBody(
             text=text,
-            attachments=attachments,
+            attachments=merged_attachments,
             link=link,
             notify=notify,
             format=format,
         )
         return _success(
-            await self.request(
+            await self._request_with_attachment_retry(
                 "PUT",
                 "/messages",
+                attachments_present=bool(merged_attachments),
                 params={"message_id": message_id},
                 json=body.api_dump(),
             )
@@ -666,34 +732,69 @@ class Bot:
         message: NewMessageBody | None = None,
         text: str | None = None,
         attachments: list[AttachmentRequest | dict[str, Any]] | None = None,
+        reply_markup: InlineKeyboardAttachmentRequest | None = None,
         format: TextFormat | str | None = None,
         disable_link_preview: bool | None = None,
         chat_id: int | None = None,
         user_id: int | None = None,
     ) -> bool:
+        result = await self.answer_callback_result(
+            callback_id,
+            notification=notification,
+            message=message,
+            text=text,
+            attachments=attachments,
+            reply_markup=reply_markup,
+            format=format,
+            disable_link_preview=disable_link_preview,
+            chat_id=chat_id,
+            user_id=user_id,
+        )
+        return result.success
+
+    async def answer_callback_result(
+        self,
+        callback_id: str,
+        *,
+        notification: str | None = None,
+        message: NewMessageBody | None = None,
+        text: str | None = None,
+        attachments: list[AttachmentRequest | dict[str, Any]] | None = None,
+        reply_markup: InlineKeyboardAttachmentRequest | None = None,
+        format: TextFormat | str | None = None,
+        disable_link_preview: bool | None = None,
+        chat_id: int | None = None,
+        user_id: int | None = None,
+    ) -> SimpleQueryResult:
+        """Answer a callback and preserve MAX's optional diagnostic message."""
+
         if message is not None and any(
-            value is not None for value in (text, attachments, format)
+            value is not None for value in (text, attachments, reply_markup, format)
         ):
             raise ValidationError(
                 "pass message or message convenience fields, not both"
             )
         if message is None and any(
-            value is not None for value in (text, attachments, format)
+            value is not None for value in (text, attachments, reply_markup, format)
         ):
-            message = NewMessageBody(text=text, attachments=attachments, format=format)
+            message = NewMessageBody(
+                text=text,
+                attachments=_with_reply_markup(attachments, reply_markup),
+                format=format,
+            )
         await self._acquire_target_limit(chat_id=chat_id, user_id=user_id)
         body = CallbackAnswer(message=message, notification=notification)
-        return _success(
-            await self.request(
-                "POST",
-                "/answers",
-                params={
-                    "callback_id": callback_id,
-                    "disable_link_preview": disable_link_preview,
-                },
-                json=body.api_dump(),
-            )
+        payload = await self._request_with_attachment_retry(
+            "POST",
+            "/answers",
+            attachments_present=bool(message and message.attachments),
+            params={
+                "callback_id": callback_id,
+                "disable_link_preview": disable_link_preview,
+            },
+            json=body.api_dump(),
         )
+        return SimpleQueryResult.model_validate(payload)
 
     async def get_updates(
         self,

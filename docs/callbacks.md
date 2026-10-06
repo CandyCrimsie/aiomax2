@@ -1,5 +1,9 @@
 # Callback-кнопки и клавиатура
 
+Для нового кода обычно удобнее
+[InlineKeyboardBuilder и `reply_markup`](keyboards.md). Эта страница показывает
+низкоуровневую MAX-модель, которая остаётся полностью поддерживаемой.
+
 В MAX inline keyboard передаётся как attachment. Кнопка `callback` содержит
 payload, который приходит в событии `message_callback`.
 
@@ -47,6 +51,16 @@ await callback_query.answer(
     text="Статус: подтверждено",
 )
 ```
+
+Notification-only ответ поддерживается и отправляется без пустого message:
+
+```python
+await callback_query.answer(notification="Отменено")
+```
+
+Обычный метод возвращает `bool`. Если нужен диагностический `message` при
+`success=false`, вызовите `bot.answer_callback_result(...)` и получите
+`SimpleQueryResult`.
 
 Shortcut передаёт `chat_id`/`user_id` из callback message в единый target
 limiter. Если исходное сообщение уже удалено, используется пользователь из

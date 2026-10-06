@@ -7,7 +7,12 @@ from pydantic import Field
 from aiomax2.enums import ChatType, MessageLinkType, TextFormat
 from aiomax2.exceptions import ValidationError
 
-from .attachments import Attachment, AttachmentRequest, MarkupElement
+from .attachments import (
+    Attachment,
+    AttachmentRequest,
+    InlineKeyboardAttachmentRequest,
+    MarkupElement,
+)
 from .base import MAXObject
 from .user import User
 
@@ -115,6 +120,7 @@ class Message(MAXObject):
         text: str | None = None,
         *,
         attachments: list[AttachmentRequest | dict[str, Any]] | None = None,
+        reply_markup: InlineKeyboardAttachmentRequest | None = None,
         notify: bool | None = None,
         format: TextFormat | str | None = None,
         disable_link_preview: bool | None = None,
@@ -127,6 +133,7 @@ class Message(MAXObject):
             chat_id=target_chat,
             user_id=target_user,
             attachments=attachments,
+            reply_markup=reply_markup,
             notify=notify,
             format=format,
             disable_link_preview=disable_link_preview,
@@ -137,6 +144,7 @@ class Message(MAXObject):
         text: str | None = None,
         *,
         attachments: list[AttachmentRequest | dict[str, Any]] | None = None,
+        reply_markup: InlineKeyboardAttachmentRequest | None = None,
         notify: bool | None = None,
         format: TextFormat | str | None = None,
         disable_link_preview: bool | None = None,
@@ -151,6 +159,7 @@ class Message(MAXObject):
             chat_id=target_chat,
             user_id=target_user,
             attachments=attachments,
+            reply_markup=reply_markup,
             link=NewMessageLink(type=MessageLinkType.REPLY, mid=self.message_id),
             notify=notify,
             format=format,
@@ -162,6 +171,7 @@ class Message(MAXObject):
         text: str | None = None,
         *,
         attachments: list[AttachmentRequest | dict[str, Any]] | None = None,
+        reply_markup: InlineKeyboardAttachmentRequest | None = None,
         notify: bool | None = None,
         format: TextFormat | str | None = None,
     ) -> bool:
@@ -171,6 +181,7 @@ class Message(MAXObject):
             self.message_id,
             text=text,
             attachments=attachments,
+            reply_markup=reply_markup,
             notify=notify,
             format=format,
             chat_id=self.chat_id,

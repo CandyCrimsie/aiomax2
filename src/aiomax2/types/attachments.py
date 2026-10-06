@@ -100,17 +100,17 @@ class LocationAttachment(BaseAttachment):
 
 class BaseButton(MAXObject):
     type: str
-    text: str
+    text: Annotated[str, Field(min_length=1, max_length=128)]
 
 
 class CallbackButton(BaseButton):
     type: Literal["callback"] = "callback"
-    payload: str
+    payload: Annotated[str, Field(max_length=1024)]
 
 
 class LinkButton(BaseButton):
     type: Literal["link"] = "link"
-    url: str
+    url: Annotated[str, Field(max_length=2048)]
 
 
 class RequestGeoLocationButton(BaseButton):
@@ -129,13 +129,13 @@ class MessageButton(BaseButton):
 class OpenAppButton(BaseButton):
     type: Literal["open_app"] = "open_app"
     web_app: str
-    payload: str | None = None
+    payload: Annotated[str, Field(max_length=512, pattern=r"^[\w-]*$")] | None = None
     contact_id: int | None = None
 
 
 class ClipboardButton(BaseButton):
     type: Literal["clipboard"] = "clipboard"
-    payload: str
+    payload: Annotated[str, Field(max_length=1024)]
 
 
 Button = Annotated[
@@ -152,6 +152,36 @@ Button = Annotated[
 
 class Keyboard(MAXObject):
     buttons: list[list[Button]]
+
+    @model_validator(mode="after")
+    def validate_layout(self) -> Keyboard:
+        if not self.buttons:
+            raise ValueError("keyboard must contain at least one row")
+        if len(self.buttons) > 30:
+            raise ValueError("keyboard cannot contain more than 30 rows")
+
+        restricted_types = {
+            "link",
+            "open_app",
+            "request_geo_location",
+            "request_contact",
+        }
+        total = 0
+        for row in self.buttons:
+            if not row:
+                raise ValueError("keyboard rows cannot be empty")
+            if len(row) > 7:
+                raise ValueError("keyboard rows cannot contain more than 7 buttons")
+            if len(row) > 3 and any(button.type in restricted_types for button in row):
+                raise ValueError(
+                    "rows containing link, open_app, request_geo_location or "
+                    "request_contact buttons cannot contain more than 3 buttons"
+                )
+            total += len(row)
+
+        if total > 210:
+            raise ValueError("keyboard cannot contain more than 210 buttons")
+        return self
 
 
 class InlineKeyboardAttachment(BaseAttachment):

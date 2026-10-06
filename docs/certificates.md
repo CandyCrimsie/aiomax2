@@ -3,6 +3,20 @@
 `aiomax2` всегда проверяет сертификат и hostname. Опции `ssl=False` и
 `verify_ssl=False` не используются.
 
+MAX API вызывается через `https://platform-api2.max.ru`. Если при запуске
+возникает ошибка вида:
+
+```text
+ssl.SSLCertVerificationError:
+unable to get local issuer certificate
+```
+
+это означает, что среда Python не доверяет одному из сертификатов цепочки.
+Установите необходимый trusted CA в системное trust store либо передайте
+проверенный CA bundle через `ca_file`. Не обходите проблему через `ssl=False`:
+это отключает защиту соединения и aiomax2 намеренно не предоставляет такой
+режим.
+
 Если системное trust store уже содержит нужную цепочку, достаточно обычного
 создания `Bot`:
 

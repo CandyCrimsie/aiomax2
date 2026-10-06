@@ -23,6 +23,8 @@ events, attachments и ограничения соответствуют MAX.
 - [Команды](commands.md)
 - [Magic filter `F`](magic-filter.md)
 - [Callback и клавиатуры](callbacks.md)
+- [Inline-клавиатуры](keyboards.md)
+- [Форматирование текста](formatting.md)
 - [FSM](fsm.md)
 - [Middleware](middleware.md)
 - [Загрузка файлов](uploads.md)
@@ -34,4 +36,3 @@ events, attachments и ограничения соответствуют MAX.
 Главные источники истины проекта —
 [официальная документация MAX](https://dev.max.ru/docs-api) и
 [официальная OpenAPI-схема](https://github.com/max-messenger/api-schema).
-

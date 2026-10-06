@@ -32,6 +32,8 @@
 - dependency/context injection по сигнатуре handler;
 - FSM с `FSMContext`, `State`, `StatesGroup` и `MemoryStorage`;
 - shortcuts для сообщений и callback;
+- `InlineKeyboardBuilder` и `reply_markup` для inline-клавиатур MAX;
+- HTML и MAX Markdown через `TextFormat`;
 - Long Polling;
 - Webhook и интеграция с FastAPI;
 - загрузка изображений, видео, аудио и файлов;
@@ -220,24 +222,17 @@ await message.delete()
 
 ```python
 from aiomax2 import F
-from aiomax2.types import (
-    CallbackButton,
-    CallbackQuery,
-    InlineKeyboardAttachmentRequest,
-    Keyboard,
-)
+from aiomax2.types import CallbackQuery
+from aiomax2.utils.keyboard import InlineKeyboardBuilder
 
-keyboard = InlineKeyboardAttachmentRequest(
-    payload=Keyboard(
-        buttons=[
-            [
-                CallbackButton(
-                    text="Подтвердить",
-                    payload="confirm",
-                )
-            ]
-        ]
-    )
+builder = InlineKeyboardBuilder()
+builder.button(text="Подтвердить", callback_data="confirm")
+builder.button(text="Отменить", callback_data="cancel")
+builder.adjust(2)
+
+await message.answer(
+    "Выберите действие",
+    reply_markup=builder.as_markup(),
 )
 
 
@@ -245,6 +240,30 @@ keyboard = InlineKeyboardAttachmentRequest(
 async def confirm(callback_query: CallbackQuery) -> None:
     await callback_query.answer(notification="Готово")
 ```
+
+Builder поддерживает семь актуальных типов кнопок MAX. Low-level
+`CallbackButton`, `Keyboard` и `InlineKeyboardAttachmentRequest` остаются
+доступны. Подробнее: [клавиатуры](https://candycrimsie.github.io/aiomax2/keyboards/).
+
+## Форматирование
+
+```python
+from aiomax2 import TextFormat
+
+await message.answer(
+    "<b>Жирный</b> <i>курсив</i>",
+    format=TextFormat.HTML,
+)
+
+await message.answer(
+    "**Жирный** _курсив_",
+    format=TextFormat.MARKDOWN,
+)
+```
+
+MAX поддерживает значения `html` и `markdown`; отдельного
+`markdown_v2` в актуальном API нет. Подробнее:
+[форматирование текста](https://candycrimsie.github.io/aiomax2/formatting/).
 
 ---
 
@@ -386,6 +405,10 @@ await bot.send_message(
 
 Transport отдельно обрабатывает внешние upload URL и не переносит на них
 headers основной API session.
+
+Если MAX вернул документированный `attachment.not.ready`, отправка или
+редактирование сообщения с уже загруженным attachment ограниченно повторяется
+с растущей паузой. Сам binary upload после неоднозначной ошибки не повторяется.
 
 Подробнее:
 
@@ -589,8 +612,9 @@ MAX остаётся источником истины для:
 - upload flow;
 - API semantics.
 
-Например, клавиатура MAX является attachment сообщения, а не Telegram
-`reply_markup`.
+Например, клавиатура MAX на wire является attachment сообщения. Параметр
+`reply_markup` в aiomax2 — только convenience над этим attachment, а не
+Telegram keyboard model.
 
 Подробное руководство:
 
@@ -619,6 +643,8 @@ https://candycrimsie.github.io/aiomax2/migration-from-aiogram/
 - [Команды](https://candycrimsie.github.io/aiomax2/commands/)
 - [Magic filter F](https://candycrimsie.github.io/aiomax2/magic-filter/)
 - [Callback и клавиатуры](https://candycrimsie.github.io/aiomax2/callbacks/)
+- [Inline-клавиатуры](https://candycrimsie.github.io/aiomax2/keyboards/)
+- [Форматирование текста](https://candycrimsie.github.io/aiomax2/formatting/)
 - [Middleware](https://candycrimsie.github.io/aiomax2/middleware/)
 - [FSM](https://candycrimsie.github.io/aiomax2/fsm/)
 
@@ -651,6 +677,8 @@ https://candycrimsie.github.io/aiomax2/migration-from-aiogram/
 - команд;
 - фильтров;
 - callback-кнопок;
+- всех MAX inline button types и builder API;
+- HTML и MAX Markdown;
 - FSM;
 - middleware;
 - вложенных router;
@@ -697,7 +725,6 @@ CI выполняет проверки на поддерживаемых вер�
 - Redis FSM storage;
 - настраиваемая event isolation;
 - background/queue-backed Webhook processing;
-- улучшенная проверка готовности attachments;
 - resumable/chunked uploads;
 - дополнительные production deployment recipes.
 

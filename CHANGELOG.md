@@ -24,6 +24,11 @@ Semantic Versioning с pre-release суффиксами.
 - Webhook configuration упрощена до public base URL и локального route path;
 - lifespan annotations обновлены с `AsyncIterator` на `AsyncGenerator`;
 - пользовательская документация и примеры переведены на русский язык.
+- добавлен удобный `reply_markup` поверх настоящего MAX keyboard attachment;
+- HTML и MAX Markdown оформлены как документированный public API через
+  `TextFormat` без неподдерживаемого `MARKDOWN_V2`;
+- `attachment.not.ready` обрабатывается отдельным bounded retry только при
+  отправке/изменении сообщения с attachment.
 
 ### Добавлено
 
@@ -34,6 +39,11 @@ Semantic Versioning с pre-release суффиксами.
 - полное руководство по Webhook, Long Polling, FSM, middleware и rate limits;
 - пример выбора Polling или Webhook через `MAX_MODE` для одной кодовой базы;
 - MkDocs configuration, официальный GitHub Pages workflow и community files.
+- `InlineKeyboardBuilder` для всех семи актуальных MAX button types;
+- typed `answer_callback_result()` для сохранения diagnostic message при
+  `success=false` без изменения совместимого `answer_callback() -> bool`;
+- keyboard/formatting examples, TLS troubleshooting и расширенные tests для
+  callback serialization, keyboard limits и attachment readiness.
 
 ## [0.1.0a1] - 2026-10-05
 

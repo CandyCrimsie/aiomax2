@@ -57,6 +57,22 @@ python bot.py
 Пример использует Long Polling, чтобы локальный запуск не требовал публичного
 HTTPS endpoint. В production перейдите на [Webhook](webhook.md).
 
+## Inline-клавиатура
+
+```python
+from aiomax2.utils.keyboard import InlineKeyboardBuilder
+
+builder = InlineKeyboardBuilder()
+builder.button(text="Подтвердить", callback_data="confirm")
+builder.button(text="Отменить", callback_data="cancel")
+builder.adjust(2)
+
+await message.answer("Выберите действие", reply_markup=builder.as_markup())
+```
+
+`reply_markup` — удобный слой над настоящим inline-keyboard attachment MAX.
+Подробности и все семь типов кнопок: [Inline-клавиатуры](keyboards.md).
+
 ## Одна кодовая база для двух режимов
 
 Выбирать режим можно через deployment configuration, не создавая отдельный

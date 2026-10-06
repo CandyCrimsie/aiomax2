@@ -23,7 +23,7 @@
 | `GET /messages/{messageId}` | `get_message` | Поддерживается | — |
 | comment endpoints | `get_comments`, `send_comment`, `edit_comment`, `delete_comment`, `get_comment` | Поддерживается | События комментариев пока только Webhook |
 | `GET /videos/{videoToken}` | `get_video_attachment_details` | Поддерживается | — |
-| `POST /answers` | `answer_callback` | Поддерживается | 2 операции/с на target |
+| `POST /answers` | `answer_callback`, `answer_callback_result` | Поддерживается | Второй метод сохраняет diagnostic `message`; 2 операции/с на target |
 | `GET /updates` | `get_updates` | Поддерживается | Только разработка и тесты |
 
 ## Осознанные исключения
@@ -38,12 +38,13 @@
 возможность не заявляется поддерживаемой.
 
 `upload_media` реализует документированный one-shot multipart workflow.
-Resumable/chunked вариант отложен: протокол зависит от upload host и не описан
-полностью в OpenAPI.
+`attachment.not.ready` обрабатывается bounded retry при последующей отправке
+или правке сообщения; binary upload не повторяется. Resumable/chunked вариант
+отложен: протокол зависит от upload host и не описан полностью в OpenAPI.
 
 ## Версия источников
 
 - MAX OpenAPI: `0.0.33`;
 - API host: `https://platform-api2.max.ru`;
 - token: чистое значение в `Authorization`, без `Bearer`;
-- дата ручной сверки: 5 октября 2026.
+- дата ручной сверки: 6 октября 2026.
