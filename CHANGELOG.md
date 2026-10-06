@@ -6,6 +6,16 @@ Semantic Versioning с pre-release суффиксами.
 
 ## [Unreleased]
 
+### Изменено
+
+- уточнена настройка TLS для MAX API: системный trust store, отдельный CA
+  bundle и диагностический `verify_ssl=False`;
+- указано, что собственный сертификат для исходящих MAX API-запросов выпускать
+  не требуется;
+- обновлена ссылка на страницу сертификатов Минцифры:
+  https://www.gosuslugi.ru/crt;
+- документация установки обновлена после публикации `aiomax2` на PyPI.
+
 ## [0.1.0a2] - 2026-10-06
 
 ### Изменено
@@ -38,7 +48,7 @@ Semantic Versioning с pre-release суффиксами.
 - добавлен явный небезопасный режим `verify_ssl=False` с
   `InsecureTLSWarning`, безопасный default сохранён;
 - расширено руководство по сертификатам Минцифры и добавлен официальный
-  источник: https://www.gosuslugi.ru/landing/tls.
+  источник: https://www.gosuslugi.ru/crt.
 
 ### Добавлено
 
@@ -54,13 +64,6 @@ Semantic Versioning с pre-release суффиксами.
   `success=false` без изменения совместимого `answer_callback() -> bool`;
 - keyboard/formatting examples, TLS troubleshooting и расширенные tests для
   callback serialization, keyboard limits и attachment readiness.
-- уточнена настройка TLS для MAX API: системный trust store, отдельный CA
-  bundle и диагностический `verify_ssl=False`;
-- указано, что собственный сертификат для исходящих MAX API-запросов выпускать
-  не требуется;
-- обновлена ссылка на страницу сертификатов Минцифры:
-  https://www.gosuslugi.ru/crt;
-- документация установки обновлена после публикации `aiomax2` на PyPI.
 
 ## [0.1.0a1] - 2026-10-05
 
