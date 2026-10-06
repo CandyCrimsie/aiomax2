@@ -32,7 +32,7 @@ schema нет. Живая документация содержит более �
 | `GET /subscriptions` | `get_subscriptions` | Поддерживается | — |
 | `POST /subscriptions` | `subscribe` | Поддерживается | URL, secret, `update_types` |
 | `DELETE /subscriptions` | `unsubscribe` | Поддерживается | URL передаётся query-параметром |
-| `POST /uploads` | `get_upload_url`, `upload_media` | Partial | Multipart поддерживается; resumable helper отсутствует |
+| `POST /uploads` | `get_upload_url`, `upload_media` | Поддерживается | Multipart upload поддерживается; resumable upload helper пока отсутствует |
 | `GET /messages` | `get_messages` | Поддерживается | Все query-параметры pagination/filter schema |
 | `POST /messages` | `send_message` | Поддерживается | Один target; 2 операции/с на target |
 | `PUT /messages` | `edit_message` | Поддерживается | `attachments=None` не меняет вложения, `[]` удаляет все |
@@ -108,9 +108,10 @@ headers не наследуются. Binary upload автоматически н
 неоднозначной network failure. Каждый последующий `attachment.not.ready`
 message attempt снова получает target limiter slot.
 
-Resumable/chunked upload остаётся **Partial**: официальный протокол зависит от
-upload host и недостаточно формализован в OpenAPI для безопасного общего
-helper. Он не реализуется догадками.
+Resumable/chunked upload пока не реализован как отдельный high-level helper.
+Это не ограничивает поддержку `POST /uploads` и обычного multipart upload.
+Отдельный resumable helper не реализуется догадками: официальный протокол
+зависит от upload host и недостаточно формализован в OpenAPI.
 
 ## Осознанные исключения
 

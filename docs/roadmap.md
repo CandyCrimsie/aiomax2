@@ -14,8 +14,9 @@
 - [x] Live Webhook/API harness и воспроизводимый smoke-test plan
 - [ ] Ручная live-проверка всех update types и ещё не покрытых endpoints
 
-Версия может перейти к release candidate после ручного smoke-test; пункты live
-не помечаются выполненными автоматическими tests.
+`0.1.0a3` можно публиковать после успешного ручного live smoke-test. После
+стабилизации alpha следующая стадия — `0.1.0b1`; пункты live не помечаются
+выполненными автоматическими tests.
 
 ## MVP (`0.1.0a2`)
 
@@ -40,12 +41,16 @@
 
 ## `0.2`
 
-- Redis-backed distributed rate limiter для multi-worker deployments
-- Redis FSM storage и настраиваемая event isolation
+- Optional distributed rate limiter adapters для multi-worker deployments
+- Optional external FSM storage adapters и настраиваемая event isolation
 - Background Webhook processing и queue-backed production strategy
 - Resumable/chunked upload в дополнение к multipart helper
 - aiohttp/Starlette adapters и дополнительные deployment recipes
 - Contract fixtures из реальных ответов MAX
+
+По умолчанию aiomax2 использует `MemoryStorage` и process-local rate limiter и
+не требует Redis или другой внешней инфраструктуры. Возможные внешние backend
+в будущем должны оставаться optional adapters/integrations.
 
 ## `0.3`
 
