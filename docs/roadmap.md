@@ -1,6 +1,6 @@
 # Roadmap
 
-## MVP (`0.1.0a1`)
+## MVP (`0.1.0a2`)
 
 - [x] Исследование официального API, архивного `aiomax` и aiogram 3.x
 - [x] Таблица соответствий, различия и архитектура
@@ -20,9 +20,9 @@
 
 ## `0.2`
 
-- Distributed / Redis-backed rate limiter для multi-worker deployments
+- Redis-backed distributed rate limiter для multi-worker deployments
 - Redis FSM storage и настраиваемая event isolation
-- Background Webhook processing и queue-based production strategy
+- Background Webhook processing и queue-backed production strategy
 - Проверка готовности attachments с ограниченным backoff
 - Resumable/chunked upload в дополнение к multipart helper
 - aiohttp/Starlette adapters и дополнительные deployment recipes

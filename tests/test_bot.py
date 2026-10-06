@@ -47,6 +47,28 @@ class StubTransport:
         return {"success": True}
 
 
+class UploadStubTransport(StubTransport):
+    def __init__(self) -> None:
+        super().__init__()
+        self.uploads: list[dict[str, Any]] = []
+
+    async def request(self, method: str, path: str, **kwargs: Any) -> Any:
+        if method == "POST" and path == "/uploads":
+            self.calls.append((method, path, kwargs))
+            upload_type = str(kwargs["params"]["type"])
+            payload: dict[str, Any] = {
+                "url": f"https://uploads.example.test/{upload_type}"
+            }
+            if upload_type != "image":
+                payload["token"] = f"{upload_type}-token"
+            return payload
+        return await super().request(method, path, **kwargs)
+
+    async def upload(self, url: str, file_data: Any, **kwargs: Any) -> Any:
+        self.uploads.append({"url": url, "file_data": file_data, **kwargs})
+        return {"photos": {"photoIds": {"token": "image-token"}}}
+
+
 class RecordingLimiter:
     def __init__(self) -> None:
         self.keys: list[str] = []
@@ -175,3 +197,44 @@ async def test_outgoing_dialog_shortcuts_keep_recipient_as_target() -> None:
 
     assert message.user_id == 42
     assert limiter.keys == ["user:42", "user:42"]
+
+
+@pytest.mark.asyncio
+async def test_low_level_message_methods_use_target_or_fallback_bucket() -> None:
+    stub = StubTransport()
+    bot = Bot("token", transport=cast(AiohttpSession, stub))
+    limiter = RecordingLimiter()
+    bot._target_limiter = cast(Any, limiter)
+
+    await bot.send_message("sent", chat_id=100)
+    await bot.edit_message("message.1")
+    await bot.delete_message("message.1", user_id=42)
+    await bot.answer_callback("callback.1")
+
+    assert limiter.keys == ["chat:100", "unknown", "user:42", "unknown"]
+
+
+@pytest.mark.asyncio
+async def test_media_upload_authorization_is_scoped_by_max_protocol() -> None:
+    stub = UploadStubTransport()
+    bot = Bot("token", transport=cast(AiohttpSession, stub))
+
+    image = await bot.upload_image(b"image", filename="image.png")
+    video = await bot.upload_video(b"video", filename="video.mp4")
+    audio = await bot.upload_audio(b"audio", filename="audio.mp3")
+    document = await bot.upload_file(b"file", filename="file.pdf")
+
+    assert image.payload.token == "image-token"
+    assert video.payload.token == "video-token"
+    assert audio.payload.token == "audio-token"
+    assert document.payload.token == "file-token"
+    assert [upload["authorization"] for upload in stub.uploads] == [
+        True,
+        False,
+        False,
+        False,
+    ]
+    assert all(
+        upload["url"].startswith("https://uploads.example.test/")
+        for upload in stub.uploads
+    )

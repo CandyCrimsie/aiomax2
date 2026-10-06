@@ -1,5 +1,11 @@
 # Примеры
 
+Базовые примеры работают после локальной установки:
+
+```bash
+python -m pip install -e .
+```
+
 Все примеры используют `MAX_BOT_TOKEN`. Polling examples запускаются так:
 
 ```bash
@@ -28,7 +34,15 @@ python examples/basic_bot.py
 Для `fastapi_webhook.py`:
 
 ```bash
+python -m pip install -e ".[fastapi]"
 uvicorn examples.fastapi_webhook:app --host 127.0.0.1 --port 8000
+```
+
+Для полной проверки repository examples вместе со всеми необязательными
+интеграциями можно установить development extra:
+
+```bash
+python -m pip install -e ".[dev]"
 ```
 
 Установите `MAX_WEBHOOK_URL` для автоматической регистрации подписки при

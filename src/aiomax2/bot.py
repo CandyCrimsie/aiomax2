@@ -105,8 +105,10 @@ class Bot:
             ca_file=ca_file,
             session=session,
         )
-        # MAX documents at most two message mutations/callback answers per
-        # second per dialog, group chat, or channel.
+        # Conservative client-side policy: MAX documents 2 ops/sec target
+        # limits for these operations, but does not state that all endpoints
+        # share one server-side budget. One shared bucket cannot exceed the
+        # documented limits, at the cost of throughput in mixed workloads.
         self._target_limiter = KeyedRateLimiter(2, 1.0)
         self._me: BotInfo | None = None
 
@@ -144,7 +146,7 @@ class Bot:
         chat_id: int | None = None,
         user_id: int | None = None,
     ) -> None:
-        """Apply MAX's shared per-dialog message operation limit.
+        """Apply aiomax2's conservative per-target operation limit.
 
         Message and callback shortcuts pass the concrete target. Low-level
         calls that only have a message/callback id share a conservative

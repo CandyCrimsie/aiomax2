@@ -48,6 +48,11 @@ class AiohttpSession:
             raise ValueError("token must not be empty")
         if ssl_context is not None and ca_file is not None:
             raise ValueError("pass either ssl_context or ca_file, not both")
+        if ssl_context is not None and (
+            not ssl_context.check_hostname
+            or ssl_context.verify_mode != ssl.CERT_REQUIRED
+        ):
+            raise ValueError("ssl_context must verify certificates and check hostnames")
         self.token = token
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
@@ -162,6 +167,9 @@ class AiohttpSession:
                     data=data,
                     headers=request_headers,
                     timeout=request_timeout,
+                    # A per-request context takes precedence over a custom
+                    # connector, including TCPConnector(ssl=False).
+                    ssl=self._ssl_context,
                 ) as response:
                     raw = await response.read()
                     payload = self._decode_payload(response.status, raw)
@@ -225,6 +233,7 @@ class AiohttpSession:
                 data=form,
                 headers=headers,
                 timeout=self._client_timeout,
+                ssl=self._ssl_context,
             ) as response:
                 raw = await response.read()
                 if 200 <= response.status < 300:

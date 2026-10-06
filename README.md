@@ -8,7 +8,7 @@ aiogram 3.x. Библиотека предоставляет `Bot`, `Dispatcher`
 фильтры, middleware, FSM, Webhook и Long Polling, но сохраняет реальные
 сущности и ограничения MAX.
 
-> **Статус: Alpha (`0.1.0a1`).** Публичный API ещё может меняться до стабильной
+> **Статус: Alpha (`0.1.0a2`).** Публичный API ещё может меняться до стабильной
 > версии. Модели сверены с официальной OpenAPI-схемой `0.0.33` 5 октября 2026
 > года.
 
@@ -197,8 +197,10 @@ payload = await bot.request("GET", "/me")
 
 `AiohttpSession` централизованно ограничивает все исходящие запросы к API до
 30 rps. Для `POST /messages`, `PUT /messages`, `DELETE /messages` и
-`POST /answers` дополнительно действует общий лимит 2 операции/с на диалог,
-чат или канал. Входящий поток `MAX -> webhook` в API limiter не входит.
+`POST /answers` aiomax2 консервативно использует единый локальный лимит
+2 операции/с на target. Это соблюдает документированные ограничения MAX,
+но в смешанных сценариях может ограничивать throughput сильнее сервера.
+Входящий поток `MAX -> webhook` в API limiter не входит.
 
 Limiter локален для одного процесса и одного transport instance. Несколько
 workers требуют внешнего shared limiter или ручного распределения общего
@@ -206,8 +208,9 @@ workers требуют внешнего shared limiter или ручного р�
 
 ## Сертификаты Минцифры
 
-Проверка TLS никогда не отключается. Дополнительный CA bundle можно передать
-одним из способов:
+Проверка TLS никогда не отключается, в том числе при передаче custom
+`aiohttp.ClientSession`: transport явно применяет свой `SSLContext` к API
+requests. Дополнительный CA bundle можно передать одним из способов:
 
 ```python
 bot = Bot(token, ca_file="/path/to/russian_trusted_ca.pem")

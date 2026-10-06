@@ -84,4 +84,7 @@ async with aiohttp.ClientSession(headers={"User-Agent": "my-max-bot/1.0"}) as se
 `Authorization` добавляется библиотекой к каждому запросу MAX API: вручную
 добавлять token в headers не нужно. Остальные пользовательские headers
 сохраняются. `Bot.close()` не закрывает переданную session — ею владеет
-пользователь. Headers этой session не переносятся на внешние upload URL.
+пользователь. Даже если custom session использует
+`aiohttp.TCPConnector(ssl=False)`, запросы к MAX API получают проверяющий
+`SSLContext` библиотеки на уровне request. Headers этой session не переносятся
+на внешние upload URL.

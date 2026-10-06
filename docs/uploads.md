@@ -37,8 +37,8 @@ Upload URL одноразовый, поэтому неоднозначные с�
 Transport отделяет API session от внешних upload hosts, чтобы custom headers
 не утекали на другой домен. Токен MAX добавляется явно только в протокол
 загрузки изображений, где это требует актуальная документация; для остальных
-upload URLs `Authorization` не добавляется.
+multipart upload URL видео, аудио и файлов `Authorization` не добавляется.
+API-вызов `POST /uploads` всегда получает token обычным безопасным путём.
 
 Проверка TLS остаётся включённой. Chunked/resumable upload пока не реализован и
 указан в roadmap.
-

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import ssl
 import time
 from collections.abc import AsyncIterator
+from typing import Any
 
 import aiohttp
 import pytest
@@ -10,7 +12,34 @@ import pytest_asyncio
 from aiohttp import web
 
 from aiomax2.client import AiohttpSession, AsyncRateLimiter
-from aiomax2.exceptions import UnauthorizedError
+from aiomax2.exceptions import RateLimitError, UnauthorizedError
+
+
+class StubResponse:
+    status = 200
+
+    def __init__(self) -> None:
+        self.headers: dict[str, str] = {}
+
+    async def read(self) -> bytes:
+        return b'{"success": true}'
+
+
+class StubRequestContext:
+    async def __aenter__(self) -> StubResponse:
+        return StubResponse()
+
+    async def __aexit__(self, *_: object) -> None:
+        return None
+
+
+def test_insecure_custom_ssl_context_is_rejected() -> None:
+    insecure_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    insecure_context.check_hostname = False
+    insecure_context.verify_mode = ssl.CERT_NONE
+
+    with pytest.raises(ValueError, match="must verify certificates"):
+        AiohttpSession("token", ssl_context=insecure_context)
 
 
 @pytest_asyncio.fixture
@@ -18,6 +47,7 @@ async def api_server() -> AsyncIterator[tuple[str, dict[str, int]]]:
     state = {
         "limited": 0,
         "limited_many": 0,
+        "limited_always": 0,
         "connections": 0,
         "concurrent": 0,
     }
@@ -49,6 +79,14 @@ async def api_server() -> AsyncIterator[tuple[str, dict[str, int]]]:
             )
         return web.json_response({"success": True})
 
+    async def limited_always(_: web.Request) -> web.Response:
+        state["limited_always"] += 1
+        return web.json_response(
+            {"message": "still limited"},
+            status=429,
+            headers={"Retry-After": "0"},
+        )
+
     async def concurrent(_: web.Request) -> web.Response:
         state["concurrent"] += 1
         await asyncio.sleep(0)
@@ -69,6 +107,7 @@ async def api_server() -> AsyncIterator[tuple[str, dict[str, int]]]:
     app.router.add_get("/me", me)
     app.router.add_get("/limited", limited)
     app.router.add_get("/limited-many", limited_many)
+    app.router.add_get("/limited-always", limited_always)
     app.router.add_get("/concurrent", concurrent)
     app.router.add_get("/unauthorized", unauthorized)
     app.router.add_post("/upload", upload)
@@ -130,7 +169,7 @@ async def test_external_session_is_not_closed(
 
 
 @pytest.mark.asyncio
-async def test_custom_session_receives_library_authorization_header(
+async def test_custom_session_without_authorization_receives_library_header(
     api_server: tuple[str, dict[str, int]],
 ) -> None:
     base_url, state = api_server
@@ -151,6 +190,45 @@ async def test_custom_session_receives_library_authorization_header(
 
 
 @pytest.mark.asyncio
+async def test_custom_session_with_ssl_disabled_gets_library_ssl_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, Any] = {}
+
+    def request_spy(
+        _: aiohttp.ClientSession,
+        method: str,
+        url: str,
+        **kwargs: Any,
+    ) -> StubRequestContext:
+        captured.update(method=method, url=url, **kwargs)
+        return StubRequestContext()
+
+    monkeypatch.setattr(aiohttp.ClientSession, "request", request_spy)
+    secure_context = ssl.create_default_context()
+    external = aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False))
+    transport = AiohttpSession(
+        "token",
+        session=external,
+        ssl_context=secure_context,
+    )
+
+    try:
+        result = await transport.request("GET", "/me")
+        await transport.close()
+
+        assert result == {"success": True}
+        assert captured["url"] == "https://platform-api2.max.ru/me"
+        assert captured["ssl"] is secure_context
+        assert secure_context.check_hostname
+        assert secure_context.verify_mode == ssl.CERT_REQUIRED
+        assert captured["headers"]["Authorization"] == "token"
+        assert not external.closed
+    finally:
+        await external.close()
+
+
+@pytest.mark.asyncio
 async def test_multiple_429_responses_honor_retry_after(
     api_server: tuple[str, dict[str, int]],
 ) -> None:
@@ -163,6 +241,22 @@ async def test_multiple_429_responses_honor_retry_after(
     assert result == {"success": True}
     assert state["limited_many"] == 3
     assert time.monotonic() - started >= 0.018
+    await transport.close()
+
+
+@pytest.mark.asyncio
+async def test_repeated_429_raises_after_retry_budget_is_exhausted(
+    api_server: tuple[str, dict[str, int]],
+) -> None:
+    base_url, state = api_server
+    transport = AiohttpSession("token", base_url=base_url, max_retries=1)
+
+    with pytest.raises(RateLimitError) as error:
+        await transport.request("GET", "/limited-always")
+
+    assert state["limited_always"] == 2
+    assert error.value.status == 429
+    assert error.value.retry_after == 0.0
     await transport.close()
 
 
@@ -236,3 +330,35 @@ async def test_upload_authorization_is_explicit_when_protocol_requires_it(
     await transport.close()
 
     assert state["upload_authorized"] == 1
+
+
+@pytest.mark.asyncio
+async def test_external_upload_request_uses_library_ssl_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, Any] = {}
+
+    def post_spy(
+        _: aiohttp.ClientSession,
+        url: str,
+        **kwargs: Any,
+    ) -> StubRequestContext:
+        captured.update(url=url, **kwargs)
+        return StubRequestContext()
+
+    monkeypatch.setattr(aiohttp.ClientSession, "post", post_spy)
+    secure_context = ssl.create_default_context()
+    transport = AiohttpSession("token", ssl_context=secure_context)
+
+    try:
+        result = await transport.upload(
+            "https://uploads.example.test/media",
+            b"file data",
+            filename="file.bin",
+        )
+
+        assert result == {"success": True}
+        assert captured["ssl"] is secure_context
+        assert captured["headers"] is None
+    finally:
+        await transport.close()
