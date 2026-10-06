@@ -1,7 +1,7 @@
 # Покрытие MAX API
 
 Покрытие основано на официальной OpenAPI-схеме `0.0.33` и актуальной
-документации, проверенных 5 октября 2026 года.
+документации, проверенных 6 октября 2026 года.
 
 | MAX endpoint | Метод `Bot` | Статус | Ограничения и примечания |
 |---|---|---|---|
@@ -15,7 +15,7 @@
 | admin endpoints | `get_admins`, `set_admins`, `revoke_admin` | Поддерживается | — |
 | `GET/DELETE /chats/{chatId}/members` | `get_members`, `remove_member` | Поддерживается | Добавление участников исключено |
 | subscriptions | `get_subscriptions`, `subscribe`, `unsubscribe` | Поддерживается | Webhook — production transport |
-| `POST /uploads` | `get_upload_url`, `upload_media` | Частично | One-shot multipart; без resumable upload |
+| `POST /uploads` | `get_upload_url`, `upload_media` | Поддерживается | Multipart upload поддерживается; resumable upload helper пока отсутствует |
 | `GET /messages` | `get_messages` | Поддерживается | — |
 | `POST /messages` | `send_message` | Поддерживается | 2 операции/с на target |
 | `PUT /messages` | `edit_message` | Поддерживается | 2 операции/с на target |
@@ -41,6 +41,24 @@
 `attachment.not.ready` обрабатывается bounded retry при последующей отправке
 или правке сообщения; binary upload не повторяется. Resumable/chunked вариант
 отложен: протокол зависит от upload host и не описан полностью в OpenAPI.
+
+### Resumable upload
+
+`POST /uploads` поддерживается: `get_upload_url()` получает URL для загрузки
+медиафайла и optional media token согласно MAX API.
+
+По одному полученному upload URL загружается один файл.
+
+Высокоуровневые helpers `upload_image()`, `upload_video()`, `upload_audio()`,
+`upload_file()` и `upload_media()` используют документированный multipart
+upload.
+
+MAX также поддерживает resumable upload с передачей файла частями и
+возобновлением прерванной загрузки. Этот workflow в `aiomax2` пока не
+реализован.
+
+Отсутствие resumable upload не ограничивает поддержку самого `POST /uploads`
+и обычной multipart-загрузки.
 
 ## Версия источников
 

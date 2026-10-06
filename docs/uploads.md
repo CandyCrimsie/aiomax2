@@ -2,9 +2,16 @@
 
 Загрузка в MAX состоит из двух этапов:
 
-1. `POST /uploads` возвращает одноразовый URL и иногда media token.
-2. Файл отправляется multipart-запросом на upload host, после чего attachment
-   добавляется в сообщение.
+1. `POST /uploads` возвращает URL для загрузки и, в зависимости от типа
+   медиафайла, media token.
+2. Файл загружается по полученному URL.
+
+MAX поддерживает два способа передачи файла на втором этапе:
+
+- multipart upload;
+- resumable upload.
+
+В настоящее время high-level helpers `aiomax2` реализуют multipart upload.
 
 Helpers выполняют оба этапа и возвращают типизированный attachment:
 
@@ -31,8 +38,12 @@ image = await bot.upload_image(
 )
 ```
 
-Upload URL одноразовый, поэтому неоднозначные сетевые ошибки автоматически не
-повторяются. Получите новый URL и повторите операцию осознанно.
+По одному upload URL можно загрузить только один файл. Если требуется загрузить
+ещё один файл, необходимо повторно вызвать `POST /uploads` и получить новый URL.
+
+Неоднозначные сетевые ошибки binary upload автоматически не повторяются:
+после такого сбоя библиотека не может надёжно определить, был ли файл уже
+принят upload host. Повтор операции пользователь выполняет осознанно.
 
 ## `attachment.not.ready`
 
@@ -70,6 +81,6 @@ API-вызов `POST /uploads` всегда получает token обычны�
 
 Проверка TLS по умолчанию остаётся включённой. Явный `verify_ssl=False`
 применяется и к upload hosts; последствия описаны в
-[руководстве по сертификатам](certificates.md). Chunked/resumable upload пока
-не реализован и указан в roadmap. Поведение `attachment.not.ready` соответствует
+[руководстве по сертификатам](certificates.md). Resumable upload пока не реализован; high-level helpers используют multipart
+upload. Поддержка resumable upload отслеживается отдельно в roadmap. Поведение `attachment.not.ready` соответствует
 [официальному описанию `POST /uploads`](https://dev.max.ru/docs-api/methods/POST/uploads).
