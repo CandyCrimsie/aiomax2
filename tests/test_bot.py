@@ -386,6 +386,19 @@ async def test_reply_markup_conflicts_with_inline_keyboard_attachment() -> None:
 
 
 @pytest.mark.asyncio
+async def test_edit_reply_markup_none_differs_from_empty_attachments() -> None:
+    stub = StubTransport()
+    bot = Bot("token", transport=cast(AiohttpSession, stub))
+    bot._target_limiter = cast(Any, RecordingLimiter())
+
+    await bot.edit_message("mid.keep", text="Keep", reply_markup=None)
+    await bot.edit_message("mid.clear", text="Clear", attachments=[])
+
+    assert "attachments" not in stub.calls[0][2]["json"]
+    assert stub.calls[1][2]["json"]["attachments"] == []
+
+
+@pytest.mark.asyncio
 async def test_format_serialization_for_message_callback_and_comments() -> None:
     class FormattingTransport(StubTransport):
         async def request(self, method: str, path: str, **kwargs: Any) -> Any:
@@ -449,6 +462,8 @@ async def test_attachment_not_ready_retries_until_send_succeeds(
         [attachment_not_ready() for _ in range(failure_count)] + [sent_message_result()]
     )
     bot = Bot("token", transport=cast(AiohttpSession, stub))
+    limiter = RecordingLimiter()
+    bot._target_limiter = cast(Any, limiter)
     sleeps: list[float] = []
 
     async def fake_sleep(delay: float) -> None:
@@ -464,6 +479,7 @@ async def test_attachment_not_ready_retries_until_send_succeeds(
     assert result.message_id == "sent.1"
     assert len(stub.calls) == failure_count + 1
     assert sleeps == expected_sleeps
+    assert limiter.keys == ["chat:100"] * (failure_count + 1)
 
 
 @pytest.mark.asyncio
@@ -535,6 +551,8 @@ async def test_attachment_retry_applies_to_edit_and_callback_update(
         ]
     )
     bot = Bot("token", transport=cast(AiohttpSession, stub))
+    limiter = RecordingLimiter()
+    bot._target_limiter = cast(Any, limiter)
 
     async def fake_sleep(_: float) -> None:
         return None
@@ -542,9 +560,16 @@ async def test_attachment_retry_applies_to_edit_and_callback_update(
     monkeypatch.setattr("aiomax2.bot.asyncio.sleep", fake_sleep)
     attachment = {"type": "file", "payload": {"token": "file-token"}}
 
-    assert await bot.edit_message("mid.1", attachments=[attachment]) is True
     assert (
-        await bot.answer_callback("callback.1", text="File", attachments=[attachment])
+        await bot.edit_message("mid.1", attachments=[attachment], chat_id=100) is True
+    )
+    assert (
+        await bot.answer_callback(
+            "callback.1",
+            text="File",
+            attachments=[attachment],
+            user_id=42,
+        )
         is True
     )
     assert [call[1] for call in stub.calls] == [
@@ -553,3 +578,4 @@ async def test_attachment_retry_applies_to_edit_and_callback_update(
         "/answers",
         "/answers",
     ]
+    assert limiter.keys == ["chat:100", "chat:100", "user:42", "user:42"]

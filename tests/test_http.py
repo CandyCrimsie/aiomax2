@@ -3,14 +3,17 @@ from __future__ import annotations
 import asyncio
 import ssl
 import time
+import warnings
 from collections.abc import AsyncIterator
 from typing import Any
+from unittest.mock import Mock
 
 import aiohttp
 import pytest
 import pytest_asyncio
 from aiohttp import web
 
+from aiomax2 import Bot, InsecureTLSWarning
 from aiomax2.client import AiohttpSession, AsyncRateLimiter
 from aiomax2.exceptions import RateLimitError, UnauthorizedError
 
@@ -40,6 +43,113 @@ def test_insecure_custom_ssl_context_is_rejected() -> None:
 
     with pytest.raises(ValueError, match="must verify certificates"):
         AiohttpSession("token", ssl_context=insecure_context)
+
+
+def test_bot_uses_secure_context_by_default() -> None:
+    bot = Bot("token")
+    context = bot.transport._ssl_context
+
+    assert context.check_hostname is True
+    assert context.verify_mode == ssl.CERT_REQUIRED
+
+
+def test_ca_file_is_loaded_into_default_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = Mock(spec=ssl.SSLContext)
+    context.check_hostname = True
+    context.verify_mode = ssl.CERT_REQUIRED
+    monkeypatch.setattr(ssl, "create_default_context", lambda: context)
+
+    transport = AiohttpSession("token", ca_file="max-ca.pem")
+
+    assert transport._ssl_context is context
+    context.load_verify_locations.assert_called_once_with(cafile="max-ca.pem")
+
+
+def test_verify_ssl_false_builds_unverified_context_and_warns_once() -> None:
+    with warnings.catch_warnings(record=True) as captured:
+        warnings.simplefilter("always")
+        bot = Bot("token", verify_ssl=False)
+
+    context = bot.transport._ssl_context
+    insecure_warnings = [
+        item for item in captured if item.category is InsecureTLSWarning
+    ]
+    assert context.check_hostname is False
+    assert context.verify_mode == ssl.CERT_NONE
+    assert len(insecure_warnings) == 1
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"verify_ssl": False, "ca_file": "max-ca.pem"},
+        {"verify_ssl": False, "ssl_context": ssl.create_default_context()},
+    ],
+)
+def test_verify_ssl_false_rejects_other_tls_configuration(
+    kwargs: dict[str, Any],
+) -> None:
+    with pytest.raises(ValueError, match="cannot be combined"):
+        AiohttpSession("token", **kwargs)
+
+
+def test_ca_file_and_ssl_context_remain_mutually_exclusive() -> None:
+    with pytest.raises(ValueError, match="either ssl_context or ca_file"):
+        AiohttpSession(
+            "token",
+            ca_file="max-ca.pem",
+            ssl_context=ssl.create_default_context(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_insecure_context_is_reused_for_api_and_upload_without_new_warnings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, Any] = {}
+
+    def request_spy(
+        _: aiohttp.ClientSession,
+        method: str,
+        url: str,
+        **kwargs: Any,
+    ) -> StubRequestContext:
+        captured.update(api_method=method, api_url=url, api_ssl=kwargs["ssl"])
+        return StubRequestContext()
+
+    def post_spy(
+        _: aiohttp.ClientSession,
+        url: str,
+        **kwargs: Any,
+    ) -> StubRequestContext:
+        captured.update(upload_url=url, upload_ssl=kwargs["ssl"])
+        return StubRequestContext()
+
+    monkeypatch.setattr(aiohttp.ClientSession, "request", request_spy)
+    monkeypatch.setattr(aiohttp.ClientSession, "post", post_spy)
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        transport = AiohttpSession("token", verify_ssl=False)
+        await transport.request("GET", "/me")
+        await transport.upload(
+            "https://uploads.example.test/media",
+            b"file data",
+            filename="file.bin",
+        )
+
+    try:
+        insecure_warnings = [
+            item for item in caught if item.category is InsecureTLSWarning
+        ]
+        assert len(insecure_warnings) == 1
+        assert captured["api_ssl"] is transport._ssl_context
+        assert captured["upload_ssl"] is transport._ssl_context
+        assert transport._ssl_context.verify_mode == ssl.CERT_NONE
+    finally:
+        await transport.close()
 
 
 @pytest_asyncio.fixture

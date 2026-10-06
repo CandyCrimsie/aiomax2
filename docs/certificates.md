@@ -1,58 +1,122 @@
 # TLS и сертификаты Минцифры
 
-`aiomax2` всегда проверяет сертификат и hostname. Опции `ssl=False` и
-`verify_ssl=False` не используются.
+MAX принимает Bot API-запросы через `https://platform-api2.max.ru` и в
+[официальной документации](https://dev.max.ru/docs-api) просит добавить
+сертификат Минцифры в список доверенных. Официальный источник сертификатов и
+актуальных инструкций —
+[Госуслуги: сертификаты для доверенного TLS](https://www.gosuslugi.ru/landing/tls).
 
-MAX API вызывается через `https://platform-api2.max.ru`. Если при запуске
-возникает ошибка вида:
+По умолчанию aiomax2 проверяет цепочку сертификата и hostname. Если среда
+Python не доверяет цепочке, обычно возникает ошибка:
 
 ```text
 ssl.SSLCertVerificationError:
 unable to get local issuer certificate
 ```
 
-это означает, что среда Python не доверяет одному из сертификатов цепочки.
-Установите необходимый trusted CA в системное trust store либо передайте
-проверенный CA bundle через `ca_file`. Не обходите проблему через `ssl=False`:
-это отключает защиту соединения и aiomax2 намеренно не предоставляет такой
-режим.
+## Режим 1: системное trust store
 
-Если системное trust store уже содержит нужную цепочку, достаточно обычного
-создания `Bot`:
+Рекомендуемый вариант — установить необходимые CA средствами операционной
+системы или Python environment и использовать безопасную конфигурацию по
+умолчанию:
 
 ```python
-bot = Bot(token)
+import os
+
+from aiomax2 import Bot
+
+bot = Bot(os.environ["MAX_BOT_TOKEN"])
 ```
 
-## Дополнительный CA bundle
+Если `ssl.create_default_context()` уже доверяет полной цепочке MAX, других
+параметров не требуется. Процедура системной установки зависит от ОС; берите
+сертификаты и инструкции из [официального источника](https://www.gosuslugi.ru/landing/tls).
+
+## Режим 2: CA только для aiomax2
+
+Можно добавить CA только в SSL context данного `Bot`, не изменяя глобальное
+системное trust store:
 
 ```python
 bot = Bot(
-    token,
-    ca_file="/path/to/russian_trusted_ca.pem",
+    os.environ["MAX_BOT_TOKEN"],
+    ca_file="/etc/ssl/max-ca.pem",
 )
 ```
 
-`ssl.create_default_context()` сохраняет системные доверенные CA, после чего
-bundle добавляется через `load_verify_locations`.
+aiomax2 вызывает `ssl.create_default_context()`, поэтому обычные системные
+trusted CA сохраняются, а затем добавляет указанный bundle через
+`load_verify_locations()`. Это рекомендуемая альтернатива системной установке,
+когда глобальное изменение trust store нежелательно.
 
-## Собственный SSLContext
+Также можно передать собственный безопасный context:
 
 ```python
 import ssl
 
 context = ssl.create_default_context()
-context.load_verify_locations(cafile="/path/to/russian_trusted_ca.pem")
+context.load_verify_locations(cafile="/etc/ssl/max-ca.pem")
 
-bot = Bot(token, ssl_context=context)
+bot = Bot(os.environ["MAX_BOT_TOKEN"], ssl_context=context)
 ```
 
-Передавайте либо `ca_file`, либо `ssl_context`, но не оба значения. Пользовательский
-context должен сохранять `check_hostname=True` и `verify_mode=ssl.CERT_REQUIRED`;
-небезопасная конфигурация отклоняется при создании transport. Не используйте
-непроверенные bundle из сторонних репозиториев: получите сертификаты из
-доверенного источника и контролируйте их обновление.
+Пользовательский context должен сохранять `check_hostname=True` и
+`verify_mode=ssl.CERT_REQUIRED`. Небезопасный custom `SSLContext` отклоняется,
+чтобы случайная конфигурация не отключила проверку.
 
-Эта конфигурация относится к исходящим запросам приложения. Для входящего
-Webhook публичный reverse proxy должен предъявлять MAX полную доверенную
-TLS-цепочку; подробности в [Webhook guide](webhook.md).
+## Режим 3: небезопасная диагностика
+
+```python
+bot = Bot(
+    os.environ["MAX_BOT_TOKEN"],
+    verify_ssl=False,
+)
+```
+
+!!! danger "Отключение проверки TLS"
+    `verify_ssl=False` отключает проверку цепочки TLS-сертификата и
+    аутентификацию peer по hostname. Соединение может оставаться шифрованным,
+    но подлинность сервера не подтверждается: MITM на сетевом пути может
+    перехватывать или изменять bot token, сообщения, callback data, metadata и
+    загружаемые файлы. Используйте режим только для диагностики или если вы
+    полностью понимаете последствия. Для production применяйте системный
+    trusted CA или `ca_file`.
+
+При создании transport один раз выдаётся `InsecureTLSWarning`. aiomax2 не
+передаёт `ssl=False` в aiohttp: создаётся явный context с
+`check_hostname=False` и `verify_mode=ssl.CERT_NONE`.
+
+Небезопасный режим относится ко **всем исходящим HTTPS-соединениям** данного
+`Bot`/`AiohttpSession`: и к `platform-api2.max.ru`, и к внешним upload URL.
+Чтобы конфигурация была однозначной, запрещены комбинации:
+
+- `verify_ssl=False` вместе с `ca_file`;
+- `verify_ssl=False` вместе с `ssl_context`;
+- `ca_file` вместе с `ssl_context`.
+
+## Клиентский TLS и Webhook TLS — разные вещи
+
+`verify_ssl` и `ca_file` управляют только исходящими запросами aiomax2.
+
+При Long Polling бот сам вызывает:
+
+```text
+bot -> HTTPS GET platform-api2.max.ru/updates
+```
+
+При Webhook входящий поток выглядит иначе:
+
+```text
+MAX -> HTTPS https://bot.example.ru/webhook
+    -> reverse proxy
+    -> aiomax2
+```
+
+Но тот же бот отдельно выполняет исходящие `subscribe()`, отправку сообщений,
+callback answers и uploads. Именно к этим исходящим запросам применяется
+настройка `verify_ssl`.
+
+`verify_ssl=False` **не** отключает и не обходит требования MAX к публичному
+Webhook endpoint. Публичный URL всё равно должен иметь корректный HTTPS-
+сертификат, которому доверяет MAX; self-signed Webhook от этого параметра не
+становится допустимым. Подробности — в [Webhook guide](webhook.md).

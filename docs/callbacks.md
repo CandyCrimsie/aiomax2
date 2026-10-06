@@ -52,11 +52,16 @@ await callback_query.answer(
 )
 ```
 
-Notification-only ответ поддерживается и отправляется без пустого message:
+aiomax2 сериализует notification-only по текущему MAX API/OpenAPI-контракту и
+не добавляет пустой message:
 
 ```python
 await callback_query.answer(notification="Отменено")
 ```
+
+Фактическое отображение такого уведомления зависит от MAX server/client и
+требует live verification: один smoke-test не показал уведомление, хотя
+notification + message update отобразились корректно.
 
 Обычный метод возвращает `bool`. Если нужен диагностический `message` при
 `success=false`, вызовите `bot.answer_callback_result(...)` и получите

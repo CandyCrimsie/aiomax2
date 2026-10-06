@@ -57,12 +57,19 @@ bot = Bot(
 создать дубликат. Binary POST на одноразовый upload URL никогда не повторяется
 этим механизмом.
 
+Каждая фактическая попытка отправки, редактирования или callback message update
+заново проходит через per-target limiter. Первый запрос acquire выполняет один
+раз; каждый retry получает следующий slot для того же `chat_id`/`user_id`.
+Binary upload этим target limiter не ограничивается.
+
 Transport отделяет API session от внешних upload hosts, чтобы custom headers
 не утекали на другой домен. Токен MAX добавляется явно только в протокол
 загрузки изображений, где это требует актуальная документация; для остальных
 multipart upload URL видео, аудио и файлов `Authorization` не добавляется.
 API-вызов `POST /uploads` всегда получает token обычным безопасным путём.
 
-Проверка TLS остаётся включённой. Chunked/resumable upload пока не реализован и
-указан в roadmap. Поведение `attachment.not.ready` соответствует
+Проверка TLS по умолчанию остаётся включённой. Явный `verify_ssl=False`
+применяется и к upload hosts; последствия описаны в
+[руководстве по сертификатам](certificates.md). Chunked/resumable upload пока
+не реализован и указан в roadmap. Поведение `attachment.not.ready` соответствует
 [официальному описанию `POST /uploads`](https://dev.max.ru/docs-api/methods/POST/uploads).

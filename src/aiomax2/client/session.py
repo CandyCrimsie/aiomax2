@@ -4,6 +4,7 @@ import asyncio
 import json as json_module
 import random
 import ssl
+import warnings
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,7 @@ from aiomax2.exceptions import (
     ServerError,
     UnauthorizedError,
 )
+from aiomax2.warnings import InsecureTLSWarning
 
 from .rate_limiter import AsyncRateLimiter
 
@@ -42,10 +44,15 @@ class AiohttpSession:
         rate_limit: int = 30,
         ssl_context: ssl.SSLContext | None = None,
         ca_file: str | Path | None = None,
+        verify_ssl: bool = True,
         session: aiohttp.ClientSession | None = None,
     ) -> None:
         if not token:
             raise ValueError("token must not be empty")
+        if not verify_ssl and (ssl_context is not None or ca_file is not None):
+            raise ValueError(
+                "verify_ssl=False cannot be combined with ssl_context or ca_file"
+            )
         if ssl_context is not None and ca_file is not None:
             raise ValueError("pass either ssl_context or ca_file, not both")
         if ssl_context is not None and (
@@ -57,13 +64,23 @@ class AiohttpSession:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.max_retries = max_retries
+        self.verify_ssl = verify_ssl
         self.rate_limiter = AsyncRateLimiter(rate_limit)
         self._client_timeout = aiohttp.ClientTimeout(total=self.timeout)
         self._provided_session = session
         self._session = session
         self._upload_session: aiohttp.ClientSession | None = None
         self._owns_session = session is None
-        self._ssl_context = ssl_context or self._build_ssl_context(ca_file)
+        if verify_ssl:
+            self._ssl_context = ssl_context or self._build_ssl_context(ca_file)
+        else:
+            warnings.warn(
+                "TLS certificate verification is disabled. HTTPS peer identity "
+                "will not be verified for API or upload connections.",
+                InsecureTLSWarning,
+                stacklevel=2,
+            )
+            self._ssl_context = self._build_unverified_ssl_context()
 
     @staticmethod
     def _build_ssl_context(ca_file: str | Path | None) -> ssl.SSLContext:
@@ -71,6 +88,13 @@ class AiohttpSession:
         context = ssl.create_default_context()
         if ca_file is not None:
             context.load_verify_locations(cafile=str(ca_file))
+        return context
+
+    @staticmethod
+    def _build_unverified_ssl_context() -> ssl.SSLContext:
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
         return context
 
     @property
@@ -215,7 +239,7 @@ class AiohttpSession:
         """Upload one file to a URL previously returned by `POST /uploads`.
 
         Upload URLs are single-use, so ambiguous failures are deliberately not
-        retried. The pooled session and verified TLS connector are reused.
+        retried. The pooled session and configured TLS context are reused.
         """
 
         session = await self._open_upload_session()

@@ -91,7 +91,7 @@ https://bot.example.ru/webhook
 MAX
   -> https://bot.example.ru/webhook
   -> reverse proxy / Caddy / nginx
-  -> 127.0.0.1:5000/webhook
+  -> 127.0.0.1:8000/webhook
   -> FastAPI
   -> aiomax2 Dispatcher
 ```
@@ -113,20 +113,20 @@ MAX принимает только HTTPS endpoint на порту 443 с сер
 
 ```caddyfile
 bot.example.ru {
-    reverse_proxy 127.0.0.1:5000
+    reverse_proxy 127.0.0.1:8000
 }
 ```
 
 Локальный Uvicorn запускается так:
 
 ```bash
-uvicorn main:app --host 127.0.0.1 --port 5000
+uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
 Caddy принимает публичный запрос к `https://bot.example.ru/webhook`,
 обслуживает TLS на порту 443 и проксирует тот же path `/webhook` в Uvicorn.
 Uvicorn не обязан сам слушать порт 443 или обслуживать публичный TLS. Ограничьте
-прямой доступ к локальному порту 5000 на уровне firewall.
+прямой доступ к локальному порту 8000 на уровне firewall.
 
 ## Регистрация подписки в lifespan
 

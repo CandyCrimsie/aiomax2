@@ -23,12 +23,22 @@ Semantic Versioning с pre-release суффиксами.
 - FastAPI и Uvicorn включены в стандартную установку, optional extra удалён;
 - Webhook configuration упрощена до public base URL и локального route path;
 - lifespan annotations обновлены с `AsyncIterator` на `AsyncGenerator`;
-- пользовательская документация и примеры переведены на русский язык.
+- пользовательская документация и примеры переведены на русский язык;
 - добавлен удобный `reply_markup` поверх настоящего MAX keyboard attachment;
 - HTML и MAX Markdown оформлены как документированный public API через
   `TextFormat` без неподдерживаемого `MARKDOWN_V2`;
 - `attachment.not.ready` обрабатывается отдельным bounded retry только при
-  отправке/изменении сообщения с attachment.
+  отправке/изменении сообщения с attachment;
+- исправлена ASCII-валидация `open_app` payload;
+- documentation notification-only callback уточнена с учётом необходимости
+  live verification;
+- каждый attachment retry теперь повторно учитывается per-target limiter;
+- уточнено, что `reply_markup=None` не удаляет клавиатуру, а `attachments=[]`
+  удаляет все вложения;
+- добавлен явный небезопасный режим `verify_ssl=False` с
+  `InsecureTLSWarning`, безопасный default сохранён;
+- расширено руководство по сертификатам Минцифры и добавлен официальный
+  источник: https://www.gosuslugi.ru/landing/tls.
 
 ### Добавлено
 
@@ -38,7 +48,7 @@ Semantic Versioning с pre-release суффиксами.
   исчерпания повторов после `429`;
 - полное руководство по Webhook, Long Polling, FSM, middleware и rate limits;
 - пример выбора Polling или Webhook через `MAX_MODE` для одной кодовой базы;
-- MkDocs configuration, официальный GitHub Pages workflow и community files.
+- MkDocs configuration, официальный GitHub Pages workflow и community files;
 - `InlineKeyboardBuilder` для всех семи актуальных MAX button types;
 - typed `answer_callback_result()` для сохранения diagnostic message при
   `success=false` без изменения совместимого `answer_callback() -> bool`;

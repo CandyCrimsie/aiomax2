@@ -41,7 +41,7 @@
 - типизированные исключения MAX API;
 - автоматическая обработка `429` и `Retry-After`;
 - встроенные rate limits;
-- безопасный HTTP transport с обязательной TLS verification;
+- безопасный по умолчанию HTTP transport с TLS verification;
 - поддержка custom `aiohttp.ClientSession`;
 - поддержка дополнительного CA bundle;
 - низкоуровневый доступ к MAX API через `Bot.request()`.
@@ -366,7 +366,7 @@ export MAX_WEBHOOK_SECRET="replace-with-random-secret"
 ```text
 MAX -> https://bot.example.ru/webhook
     -> reverse proxy
-    -> 127.0.0.1:5000/webhook
+    -> 127.0.0.1:8000/webhook
     -> FastAPI
     -> aiomax2 Dispatcher
 ```
@@ -483,7 +483,7 @@ https://candycrimsie.github.io/aiomax2/rate-limits/
 
 ## TLS и сертификаты
 
-TLS verification в `aiomax2` не отключается.
+По умолчанию `aiomax2` проверяет TLS certificate chain и hostname.
 
 Даже если переданная пользователем `aiohttp.ClientSession` создана с:
 
@@ -518,6 +518,15 @@ bot = Bot(
 ```
 
 Пользовательский `SSLContext` должен сохранять проверку сертификата и hostname.
+
+Если системное trust store не доверяет цепочке MAX, установите CA в системе
+или передайте `ca_file`. Сертификаты Минцифры и инструкции опубликованы на
+[Госуслугах](https://www.gosuslugi.ru/landing/tls).
+
+`verify_ssl=False` существует только как явный небезопасный opt-in для
+диагностики. Он отключает peer authentication для всех исходящих API и upload
+HTTPS-соединений и выдаёт `InsecureTLSWarning`; default остаётся безопасным.
+Этот параметр не ослабляет требования к TLS публичного Webhook endpoint.
 
 Подробнее:
 

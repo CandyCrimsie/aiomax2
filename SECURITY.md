@@ -22,8 +22,11 @@ vulnerability**) и укажите:
 
 ## Базовые гарантии
 
-`aiomax2` не отключает TLS validation, сравнивает Webhook secret в constant
-time и не отправляет token на обычные внешние upload URLs. Пользователь
-отвечает за хранение токена, HTTPS reverse proxy, обновление CA bundle и общий
-rate limiter в multi-worker deployment.
-
+`aiomax2` по умолчанию проверяет TLS certificate chain и hostname, сравнивает
+Webhook secret в constant time и не отправляет token на обычные внешние upload
+URLs. `verify_ssl=False` — осознанный diagnostic/compatibility escape hatch:
+он отключает certificate verification и peer authentication для исходящих API
+и upload HTTPS-соединений и не рекомендуется для production. HTTPS как
+протокол при этом не выключается. Пользователь отвечает за хранение токена,
+HTTPS reverse proxy, обновление CA bundle и общий rate limiter в multi-worker
+deployment.

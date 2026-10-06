@@ -30,6 +30,21 @@ callback answer. Если `attachments` уже содержит `inline_keyboard
 `reply_markup` вызывает `ValidationError`, чтобы не создать две клавиатуры
 неявно.
 
+При редактировании `reply_markup=None` означает «новая клавиатура не передана»
+и не удаляет уже существующую inline-клавиатуру. Согласно семантике MAX
+`PUT /messages`, отсутствие/`null` в `attachments` оставляет вложения без
+изменений, а пустой список удаляет **все** вложения:
+
+```python
+await message.edit_text("Новый текст", attachments=[])
+```
+
+!!! warning
+    `attachments=[]` удалит не только клавиатуру, но также изображения, файлы
+    и любые другие attachments сообщения. Отдельный `remove_reply_markup`
+    пока не добавлен: безопасное сохранение остальных вложений потребовало бы
+    GET/merge workflow и отдельного design pass.
+
 ## Типы кнопок MAX
 
 ```python
@@ -87,13 +102,15 @@ OpenAPI MAX:
 - до 30 рядов и до 210 кнопок всего;
 - до 7 обычных кнопок в ряду;
 - до 3 кнопок в ряду, содержащем `link`, `open_app`,
-  `request_geo_location` или `request_contact`;
+  `request_geo_location` или `request_contact` — это консервативная
+  интерпретация формулировки MAX «до 3, если это кнопки типа ...», поскольку
+  mixed-row semantics отдельно не уточнена;
 - текст кнопки — от 1 до 128 символов;
 - callback payload — до 1024 символов;
 - link URL — до 2048 символов;
 - clipboard payload — до 1024 символов;
-- open_app payload — до 512 символов и только символы, допустимые OpenAPI
-  pattern `^[\w-]*$`.
+- open_app payload — до 512 символов; латинские буквы, цифры, `_` и `-`
+  (`^[A-Za-z0-9_-]*$`). Пустая строка допустима текущим pattern.
 
 ## Callback answer
 
@@ -111,11 +128,13 @@ async def cancel(callback: CallbackQuery) -> None:
     await callback.answer(notification="Отменено")
 ```
 
-Notification-only сериализуется как `{"notification": "Отменено"}` — без
-`message: null` и без пустого message object. Это соответствует официальному
-контракту «изменённое сообщение и/или уведомление». Пустой `answer()` сейчас
-не запрещён локально, потому что OpenAPI не делает ни одно из двух полей
-обязательным; практического эффекта от такого запроса ожидать не следует.
+aiomax2 сериализует notification-only как
+`{"notification": "Отменено"}` — без `message: null` и без пустого message
+object, согласно текущему MAX API/OpenAPI-контракту. Фактическое отображение
+уведомления зависит от поведения MAX server/client и требует live verification.
+Пустой `answer()` сейчас не запрещён локально, потому что OpenAPI не делает ни
+одно из двух полей обязательным; практического эффекта от такого запроса
+ожидать не следует.
 
 Обычный `answer_callback()` сохраняет совместимый результат `bool`. Для
 диагностики ответа `{"success": false, "message": "..."}` используйте

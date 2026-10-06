@@ -129,7 +129,9 @@ class MessageButton(BaseButton):
 class OpenAppButton(BaseButton):
     type: Literal["open_app"] = "open_app"
     web_app: str
-    payload: Annotated[str, Field(max_length=512, pattern=r"^[\w-]*$")] | None = None
+    payload: (
+        Annotated[str, Field(max_length=512, pattern=r"^[A-Za-z0-9_-]*$")] | None
+    ) = None
     contact_id: int | None = None
 
 

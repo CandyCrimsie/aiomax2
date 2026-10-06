@@ -113,6 +113,7 @@ class Bot:
         rate_limit: int = 30,
         ssl_context: ssl.SSLContext | None = None,
         ca_file: str | Path | None = None,
+        verify_ssl: bool = True,
         session: aiohttp.ClientSession | None = None,
         transport: AiohttpSession | None = None,
         attachment_retries: int = 3,
@@ -131,6 +132,7 @@ class Bot:
             rate_limit=rate_limit,
             ssl_context=ssl_context,
             ca_file=ca_file,
+            verify_ssl=verify_ssl,
             session=session,
         )
         # Conservative client-side policy: MAX documents 2 ops/sec target
@@ -199,12 +201,15 @@ class Bot:
         path: str,
         *,
         attachments_present: bool,
+        chat_id: int | None = None,
+        user_id: int | None = None,
         **kwargs: Any,
     ) -> Any:
         """Retry only MAX's explicit, safe ``attachment.not.ready`` response."""
 
         retry_index = 0
         while True:
+            await self._acquire_target_limit(chat_id=chat_id, user_id=user_id)
             try:
                 return await self.request(method, path, **kwargs)
             except BadRequestError as error:
@@ -558,7 +563,6 @@ class Bot:
         if (user_id is None) == (chat_id is None):
             raise ValidationError("pass exactly one of user_id or chat_id")
         merged_attachments = _with_reply_markup(attachments, reply_markup)
-        await self._acquire_target_limit(chat_id=chat_id, user_id=user_id)
         body = NewMessageBody(
             text=text,
             attachments=merged_attachments,
@@ -571,6 +575,8 @@ class Bot:
                 "POST",
                 "/messages",
                 attachments_present=bool(merged_attachments),
+                chat_id=chat_id,
+                user_id=user_id,
                 params={
                     "user_id": user_id,
                     "chat_id": chat_id,
@@ -595,7 +601,6 @@ class Bot:
         user_id: int | None = None,
     ) -> bool:
         merged_attachments = _with_reply_markup(attachments, reply_markup)
-        await self._acquire_target_limit(chat_id=chat_id, user_id=user_id)
         body = NewMessageBody(
             text=text,
             attachments=merged_attachments,
@@ -608,6 +613,8 @@ class Bot:
                 "PUT",
                 "/messages",
                 attachments_present=bool(merged_attachments),
+                chat_id=chat_id,
+                user_id=user_id,
                 params={"message_id": message_id},
                 json=body.api_dump(),
             )
@@ -782,12 +789,13 @@ class Bot:
                 attachments=_with_reply_markup(attachments, reply_markup),
                 format=format,
             )
-        await self._acquire_target_limit(chat_id=chat_id, user_id=user_id)
         body = CallbackAnswer(message=message, notification=notification)
         payload = await self._request_with_attachment_retry(
             "POST",
             "/answers",
             attachments_present=bool(message and message.attachments),
+            chat_id=chat_id,
+            user_id=user_id,
             params={
                 "callback_id": callback_id,
                 "disable_link_preview": disable_link_preview,

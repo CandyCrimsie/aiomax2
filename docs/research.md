@@ -52,7 +52,7 @@
 | handler context | name-based cursor injection | context data injection | signature-aware event/context injection |
 | FSM | sync-словарь по user | async storage и `FSMContext` | async storage с MAX user/chat strategy |
 | API errors | ручные exceptions | типизированные API exceptions | иерархия по HTTP status и retry metadata |
-| TLS/сертификаты Минцифры | bundled opt-in CA | стандартная TLS session | проверяемый TLS; CA file или `SSLContext`, без `ssl=False` |
+| TLS/сертификаты Минцифры | bundled opt-in CA | стандартная TLS session | безопасный default; CA file/`SSLContext`; явный warning при `verify_ssl=False` |
 
 ## Что намеренно не копируется из Telegram
 

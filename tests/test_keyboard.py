@@ -149,10 +149,29 @@ def test_button_field_limits_from_openapi() -> None:
         LinkButton(text="Link", url="x" * 2049)
     with pytest.raises(PydanticValidationError):
         ClipboardButton(text="Copy", payload="x" * 1025)
+
+
+def test_open_app_payload_accepts_only_documented_ascii_characters() -> None:
+    assert (
+        OpenAppButton(
+            text="App",
+            web_app="app",
+            payload="screen-1_test",
+        ).payload
+        == "screen-1_test"
+    )
+    assert OpenAppButton(text="App", web_app="app", payload="").payload == ""
+
+
+@pytest.mark.parametrize("payload", ["привет", "has space", "screen.1", "a/b"])
+def test_open_app_payload_rejects_non_ascii_or_punctuation(payload: str) -> None:
+    with pytest.raises(PydanticValidationError):
+        OpenAppButton(text="App", web_app="app", payload=payload)
+
+
+def test_open_app_payload_rejects_513_characters() -> None:
     with pytest.raises(PydanticValidationError):
         OpenAppButton(text="App", web_app="app", payload="x" * 513)
-    with pytest.raises(PydanticValidationError):
-        OpenAppButton(text="App", web_app="app", payload="not allowed")
 
 
 def test_low_level_keyboard_api_remains_available() -> None:
