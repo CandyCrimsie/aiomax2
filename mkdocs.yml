@@ -45,6 +45,7 @@ nav:
       - Rate limits: rate-limits.md
       - TLS и сертификаты: certificates.md
       - Покрытие API: api-coverage.md
+      - Сверка с upstream: upstream-conformance.md
   - Проект:
       - Миграция с aiogram: migration-from-aiogram.md
       - Архитектура: architecture.md

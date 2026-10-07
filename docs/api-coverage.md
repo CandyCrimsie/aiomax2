@@ -1,9 +1,11 @@
 # Покрытие MAX API
 
-Покрытие повторно сверено 6 октября 2026 года с официальной OpenAPI-схемой
+Покрытие повторно сверено 7 октября 2026 года с официальной OpenAPI-схемой
 `0.0.33` (`max-messenger/api-schema`, commit `1a4a502`; сам `schema.yaml`
 последний раз изменён в commit `5af13bd` от 17 сентября 2026 года) и живой
-документацией MAX.
+документацией MAX. Behavioral audit выполнен также по официальному Go SDK
+ветки `v2`, commit `13264f8` (`v2.4.3`). Подробности и осознанные различия —
+в разделе [сверки с upstream](upstream-conformance.md).
 
 Версия и содержимое schema не изменились относительно предыдущей проверки:
 новых или удалённых paths, update discriminators, моделей и enum в репозитории
@@ -33,7 +35,7 @@ schema нет. Живая документация содержит более �
 | `POST /subscriptions` | `subscribe` | Поддерживается | URL, secret, `update_types` |
 | `DELETE /subscriptions` | `unsubscribe` | Поддерживается | URL передаётся query-параметром |
 | `POST /uploads` | `get_upload_url`, `upload_media` | Поддерживается | Multipart upload поддерживается; resumable upload helper пока отсутствует |
-| `GET /messages` | `get_messages` | Поддерживается | Все query-параметры pagination/filter schema |
+| `GET /messages` | `get_messages` | Поддерживается | Ровно один из `chat_id`/`message_ids`; все query-параметры pagination/filter schema |
 | `POST /messages` | `send_message` | Поддерживается | Один target; 2 операции/с на target |
 | `PUT /messages` | `edit_message` | Поддерживается | `attachments=None` не меняет вложения, `[]` удаляет все |
 | `DELETE /messages` | `delete_message` | Поддерживается | 2 операции/с на target |
@@ -46,6 +48,10 @@ schema нет. Живая документация содержит более �
 Request serialization всех перечисленных high-level методов проверяется
 mock transport tests. Это не означает, что endpoint был вызван на реальном
 MAX в рамках данного pass.
+
+Ответы типизированы по required/optional полям OpenAPI. Документированное
+legacy-поле `User.name`, которое всё ещё присутствует в ответах MAX и fixtures
+Go SDK, сохранено как optional для чтения.
 
 ## Updates
 
@@ -108,6 +114,10 @@ headers не наследуются. Binary upload автоматически н
 неоднозначной network failure. Каждый последующий `attachment.not.ready`
 message attempt снова получает target limiter slot.
 
+Источник token зависит от типа: image и file получают token из ответа upload
+host, video и audio — из ответа `POST /uploads`. Multipart filename очищается
+от локальных компонентов пути, поле формы всегда называется `data`.
+
 Resumable/chunked upload пока не реализован как отдельный high-level helper.
 Это не ограничивает поддержку `POST /uploads` и обычного multipart upload.
 Отдельный resumable helper не реализуется догадками: официальный протокол
@@ -128,6 +138,7 @@ Resumable/chunked upload пока не реализован как отдель�
 - MAX OpenAPI: `0.0.33`;
 - schema repository HEAD: `1a4a502fab096aa3a15d83d7ea95667ffb44d2ac`;
 - последняя правка `schema.yaml`: `5af13bddab6a16b991cbe2640c78d02e2a3047da`;
+- Go SDK v2: `13264f872c743f55dcf7a8dfce43a16a055b46ab` (`v2.4.3`);
 - API host: `https://platform-api2.max.ru`;
 - token: чистое значение в `Authorization`, без `Bearer`;
-- дата ручной сверки: 6 октября 2026 года.
+- дата ручной сверки: 7 октября 2026 года.

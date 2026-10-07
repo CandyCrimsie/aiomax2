@@ -61,14 +61,20 @@ class UploadStubTransport(StubTransport):
             payload: dict[str, Any] = {
                 "url": f"https://uploads.example.test/{upload_type}"
             }
-            if upload_type != "image":
-                payload["token"] = f"{upload_type}-token"
+            # Deliberately include a token for every type. Conformance code
+            # must still select the source defined for each upload protocol.
+            payload["token"] = f"{upload_type}-endpoint-token"
             return payload
         return await super().request(method, path, **kwargs)
 
     async def upload(self, url: str, file_data: Any, **kwargs: Any) -> Any:
         self.uploads.append({"url": url, "file_data": file_data, **kwargs})
-        return {"photos": {"photoIds": {"token": "image-token"}}}
+        upload_type = url.rsplit("/", 1)[-1]
+        if upload_type == "image":
+            return {"photos": {"photoIds": {"token": "image-upload-token"}}}
+        if upload_type == "file":
+            return {"fileId": 1, "token": "file-upload-token"}
+        return {"token": f"{upload_type}-wrong-upload-token"}
 
 
 class FailingUploadStubTransport(UploadStubTransport):
@@ -319,10 +325,10 @@ async def test_media_upload_authorization_is_scoped_by_max_protocol() -> None:
     audio = await bot.upload_audio(b"audio", filename="audio.mp3")
     document = await bot.upload_file(b"file", filename="file.pdf")
 
-    assert image.payload.token == "image-token"
-    assert video.payload.token == "video-token"
-    assert audio.payload.token == "audio-token"
-    assert document.payload.token == "file-token"
+    assert image.payload.token == "image-upload-token"
+    assert video.payload.token == "video-endpoint-token"
+    assert audio.payload.token == "audio-endpoint-token"
+    assert document.payload.token == "file-upload-token"
     assert [upload["authorization"] for upload in stub.uploads] == [
         True,
         False,
@@ -333,6 +339,16 @@ async def test_media_upload_authorization_is_scoped_by_max_protocol() -> None:
         upload["url"].startswith("https://uploads.example.test/")
         for upload in stub.uploads
     )
+
+
+@pytest.mark.asyncio
+async def test_media_upload_strips_directory_components_from_filename() -> None:
+    stub = UploadStubTransport()
+    bot = Bot("token", transport=cast(AiohttpSession, stub))
+
+    await bot.upload_file(b"file", filename=r"C:\private\reports\report.pdf")
+
+    assert stub.uploads[0]["filename"] == "report.pdf"
 
 
 @pytest.mark.asyncio

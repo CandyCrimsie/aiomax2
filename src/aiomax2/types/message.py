@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from aiomax2.enums import ChatType, MessageLinkType, TextFormat
 from aiomax2.exceptions import ValidationError
@@ -10,6 +10,7 @@ from aiomax2.exceptions import ValidationError
 from .attachments import (
     Attachment,
     AttachmentRequest,
+    BaseAttachmentRequest,
     InlineKeyboardAttachmentRequest,
     MarkupElement,
 )
@@ -71,6 +72,83 @@ class NewMessageBody(MAXObject):
     link: NewMessageLink | None = None
     notify: bool | None = None
     format: TextFormat | None = None
+
+    @model_validator(mode="after")
+    def validate_attachment_combinations(self) -> NewMessageBody:
+        attachments = self.attachments
+        if not attachments:
+            return self
+
+        attachment_types = [
+            attachment.type
+            if isinstance(attachment, BaseAttachmentRequest)
+            else attachment.get("type")
+            for attachment in attachments
+        ]
+        known_types = {
+            "image",
+            "video",
+            "audio",
+            "file",
+            "sticker",
+            "contact",
+            "inline_keyboard",
+            "location",
+            "share",
+        }
+        # Raw dicts are an intentional extension point for future MAX
+        # attachment types. Do not apply today's combination rules to them.
+        if any(item not in known_types for item in attachment_types):
+            return self
+
+        keyboard_count = attachment_types.count("inline_keyboard")
+        if keyboard_count > 1:
+            raise ValueError("a message cannot contain multiple inline keyboards")
+
+        if "sticker" in attachment_types and len(attachments) != 1:
+            raise ValueError("a sticker must be the only message attachment")
+        if "audio" in attachment_types and len(attachments) != 1:
+            raise ValueError("an audio file must be the only message attachment")
+
+        if "file" in attachment_types:
+            if attachment_types.count("file") != 1 or any(
+                item not in {"file", "inline_keyboard"} for item in attachment_types
+            ):
+                raise ValueError(
+                    "a message may contain one file and optionally one inline keyboard"
+                )
+
+        if "contact" in attachment_types:
+            if attachment_types.count("contact") != 1 or any(
+                item not in {"contact", "inline_keyboard"} for item in attachment_types
+            ):
+                raise ValueError(
+                    "a message may contain one contact and optionally "
+                    "one inline keyboard"
+                )
+            if keyboard_count:
+                keyboard = next(
+                    (
+                        attachment
+                        for attachment in attachments
+                        if isinstance(attachment, InlineKeyboardAttachmentRequest)
+                    ),
+                    None,
+                )
+                if (
+                    keyboard is not None
+                    and sum(len(row) for row in keyboard.payload.buttons) > 1
+                ):
+                    raise ValueError(
+                        "a contact may be combined with only one keyboard button"
+                    )
+
+        if set(attachment_types) <= {"image", "video", "inline_keyboard"}:
+            if len(attachments) > 12:
+                raise ValueError(
+                    "image/video messages cannot contain more than 12 attachments"
+                )
+        return self
 
 
 class NewCommentBody(MAXObject):

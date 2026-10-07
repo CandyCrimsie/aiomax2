@@ -32,6 +32,11 @@ await bot.subscribe(
 )
 ```
 
+`url` должен начинаться с `https://`. Если указан `secret`, допустимы 5–256
+ASCII-символов `A-Z`, `a-z`, `0-9`, `_` и `-`; aiomax2 проверяет эти правила
+до HTTP-запроса. Legacy-поля Go SDK `version` и `self_signed_cert` не
+отправляются: в актуальной OpenAPI subscription body их больше нет.
+
 Активная Webhook-подписка несовместима с `GET /updates`. Перед локальным Long
 Polling удалите подписку. Требования к HTTPS, secret и timeout описаны в
 [Webhook guide](webhook.md).

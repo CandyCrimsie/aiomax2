@@ -9,9 +9,9 @@ from .user import User
 
 
 class PhotoAttachmentPayload(MAXObject):
-    photo_id: int | None = None
-    token: str | None = None
-    url: str | None = None
+    photo_id: int
+    token: str
+    url: str
 
 
 class MediaAttachmentPayload(MAXObject):
@@ -38,7 +38,7 @@ class ShareAttachmentPayload(MAXObject):
 
 
 class VideoThumbnail(MAXObject):
-    url: str | None = None
+    url: str
 
 
 class BaseAttachment(MAXObject):
@@ -214,14 +214,17 @@ class PhotoToken(MAXObject):
 
 
 class PhotoAttachmentRequestPayload(MAXObject):
-    url: str | None = None
+    url: Annotated[str, Field(min_length=1)] | None = None
     token: str | None = None
     photos: dict[str, PhotoToken] | None = None
 
     @model_validator(mode="after")
     def validate_source(self) -> PhotoAttachmentRequestPayload:
-        if not any((self.url, self.token, self.photos)):
-            raise ValueError("one of url, token or photos must be provided")
+        source_count = sum(
+            source is not None for source in (self.url, self.token, self.photos)
+        )
+        if source_count != 1:
+            raise ValueError("exactly one of url, token or photos must be provided")
         return self
 
 

@@ -4,7 +4,7 @@ import asyncio
 import ssl
 import warnings
 from collections.abc import Mapping, Sequence
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import IO, Any
 
 import aiohttp
@@ -98,6 +98,12 @@ def _find_token(value: Any) -> str | None:
             if found is not None:
                 return found
     return None
+
+
+def _upload_filename(filename: str) -> str:
+    """Return a multipart filename without local directory components."""
+
+    return PurePosixPath(filename.replace("\\", "/")).name
 
 
 class Bot:
@@ -379,6 +385,19 @@ class Bot:
         secret: str | None = None,
         update_types: Sequence[str] | None = None,
     ) -> bool:
+        if not url.startswith("https://"):
+            raise ValidationError("webhook subscription URL must use https://")
+        if secret is not None and (
+            not 5 <= len(secret) <= 256
+            or any(
+                not (character.isascii() and character.isalnum())
+                and character not in {"_", "-"}
+                for character in secret
+            )
+        ):
+            raise ValidationError(
+                "webhook secret must contain 5-256 ASCII letters, digits, '_' or '-'"
+            )
         payload = {
             "url": url,
             "secret": secret,
@@ -394,8 +413,11 @@ class Bot:
         )
 
     async def get_upload_url(self, upload_type: UploadType | str) -> UploadEndpoint:
+        normalized_type = UploadType(upload_type)
         return UploadEndpoint.model_validate(
-            await self.request("POST", "/uploads", params={"type": str(upload_type)})
+            await self.request(
+                "POST", "/uploads", params={"type": str(normalized_type)}
+            )
         )
 
     async def upload_media(
@@ -417,7 +439,7 @@ class Bot:
                 response = await self.transport.upload(
                     endpoint.url,
                     file,
-                    filename=filename or path.name,
+                    filename=_upload_filename(filename or path.name),
                     content_type=content_type,
                     authorization=normalized_type is UploadType.IMAGE,
                 )
@@ -433,11 +455,17 @@ class Bot:
             response = await self.transport.upload(
                 endpoint.url,
                 source,
-                filename=filename,
+                filename=_upload_filename(filename),
                 content_type=content_type,
                 authorization=normalized_type is UploadType.IMAGE,
             )
-        token = endpoint.token or _find_token(response)
+        if normalized_type in {UploadType.VIDEO, UploadType.AUDIO}:
+            # MAX allocates audio/video tokens together with the upload URL;
+            # their upload hosts commonly answer with XML rather than JSON.
+            token = endpoint.token
+        else:
+            # Image and file tokens are produced by their upload hosts.
+            token = _find_token(response)
         if token is None:
             raise ValidationError("MAX upload response did not contain a media token")
         if normalized_type is UploadType.IMAGE:
@@ -526,6 +554,8 @@ class Bot:
         after: int | None = None,
         count: int | None = None,
     ) -> list[Message]:
+        if (chat_id is None) == (not message_ids):
+            raise ValidationError("pass exactly one of chat_id or message_ids")
         result = MessageList.model_validate(
             await self.request(
                 "GET",

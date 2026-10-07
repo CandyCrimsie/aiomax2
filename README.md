@@ -22,9 +22,9 @@ FSM, inline-клавиатуры, Long Polling и Webhook, сохраняя мо
 [Releases](https://github.com/CandyCrimsie/aiomax2/releases) ·
 [MAX Bot API](https://dev.max.ru/docs-api)**
 
-> [!NOTE]
-> Проект находится в стадии Alpha. До стабильного релиза публичный API может
-> изменяться.
+Поведение wire API сверяется с актуальной OpenAPI и официальным Go SDK v2.
+Зафиксированные revisions и осознанные различия перечислены в
+[upstream conformance guide](https://candycrimsie.github.io/aiomax2/upstream-conformance/).
 
 ---
 

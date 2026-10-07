@@ -6,6 +6,39 @@ Semantic Versioning с pre-release суффиксами.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-07
+
+### Исправлено
+
+- multipart filename больше не раскрывает локальные компоненты пути;
+- token после upload извлекается из документированного для каждого media type
+  источника: upload response для image/file и `POST /uploads` для video/audio;
+- `GET /messages` локально требует ровно один источник: `chat_id` либо
+  непустой `message_ids`;
+- timeouts API и upload отделены от остальных сетевых ошибок через совместимый
+  `RequestTimeoutError`;
+- response-модели photo/video и исходящие attachment combinations приведены к
+  актуальной OpenAPI и ограничениям MAX.
+
+### Добавлено
+
+- conformance tests на основе минимальных wire contracts официального Go SDK
+  v2, включая comments, callbacks, uploads и deprecated `User.name`;
+- локальная проверка HTTPS URL и формата secret для Webhook-подписки;
+- [страница upstream conformance](docs/upstream-conformance.md) с точными
+  revisions OpenAPI и Go SDK, осознанными различиями и runtime quirks;
+- project metadata URLs для документации, исходников и issue tracker.
+
+### Изменено
+
+- весь публичный API повторно сверён с OpenAPI `0.0.33` и официальным Go SDK
+  v2 `v2.4.3` от 7 октября 2026 года;
+- documented attachment combinations проверяются до отправки без ограничения
+  будущих неизвестных attachment types;
+- upload, polling, subscriptions, keyboards и errors guides уточнены по
+  результатам conformance-аудита;
+- release metadata подготовлена для первого stable-релиза `0.1.0`.
+
 ## [0.1.0a3] - 2026-10-06
 
 ### Исправлено

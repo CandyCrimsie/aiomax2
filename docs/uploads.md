@@ -38,6 +38,16 @@ image = await bot.upload_image(
 )
 ```
 
+Token берётся из разных ответов в зависимости от upload protocol:
+
+- image — из JSON upload response `photos.*.token`;
+- file — из JSON upload response `token`;
+- video и audio — из ответа `POST /uploads`; upload host может вернуть пустое
+  тело или XML вроде `<retval>1</retval>`.
+
+Multipart field всегда называется `data`. Переданный `filename` очищается от
+компонентов локального пути до отправки.
+
 По одному upload URL можно загрузить только один файл. Если требуется загрузить
 ещё один файл, необходимо повторно вызвать `POST /uploads` и получить новый URL.
 

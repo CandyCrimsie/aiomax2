@@ -6,7 +6,7 @@ on:
       ref:
         description: "Git tag to publish"
         required: true
-        default: "v0.1.0a3"
+        default: "v0.1.0"
 
   release:
     types: [published]

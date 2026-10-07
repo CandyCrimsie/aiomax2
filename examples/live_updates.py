@@ -120,7 +120,7 @@ def argument(command: CommandObject) -> str | None:
 @router.message(Command("start"))
 async def start(message: Message) -> None:
     await message.answer(
-        "Live harness aiomax2 0.1.0a3 запущен. "
+        "Live harness aiomax2 0.1.0 запущен. "
         "Список сценариев и prerequisites: docs/live-testing.md"
     )
 

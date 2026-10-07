@@ -1,4 +1,4 @@
-# Live smoke-test 0.1.0a3
+# Live smoke-test 0.1.0
 
 Автоматические tests проверяют parsing, Dispatcher и Webhook round-trip без
 реального MAX. Эта страница описывает отдельную ручную проверку на настоящем

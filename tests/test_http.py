@@ -14,7 +14,7 @@ from aiohttp import web
 
 from aiomax2 import Bot, InsecureTLSWarning
 from aiomax2.client import AiohttpSession, AsyncRateLimiter
-from aiomax2.exceptions import RateLimitError, UnauthorizedError
+from aiomax2.exceptions import RateLimitError, RequestTimeoutError, UnauthorizedError
 
 
 class StubResponse:
@@ -492,5 +492,45 @@ async def test_external_upload_request_uses_library_ssl_context(
         assert result == {"success": True}
         assert captured["ssl"] is secure_context
         assert captured["headers"] is None
+    finally:
+        await transport.close()
+
+
+@pytest.mark.asyncio
+async def test_api_timeout_has_specific_backward_compatible_exception(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def timeout_request(*_: Any, **__: Any) -> StubRequestContext:
+        raise TimeoutError("deadline exceeded")
+
+    monkeypatch.setattr(aiohttp.ClientSession, "request", timeout_request)
+    transport = AiohttpSession("token", max_retries=0)
+
+    try:
+        with pytest.raises(RequestTimeoutError) as error:
+            await transport.request("GET", "/me")
+        assert "timed out" in str(error.value)
+    finally:
+        await transport.close()
+
+
+@pytest.mark.asyncio
+async def test_upload_timeout_has_specific_backward_compatible_exception(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def timeout_post(*_: Any, **__: Any) -> StubRequestContext:
+        raise TimeoutError("deadline exceeded")
+
+    monkeypatch.setattr(aiohttp.ClientSession, "post", timeout_post)
+    transport = AiohttpSession("token")
+
+    try:
+        with pytest.raises(RequestTimeoutError) as error:
+            await transport.upload(
+                "https://uploads.example.test/media",
+                b"file",
+                filename="file.bin",
+            )
+        assert "timed out" in str(error.value)
     finally:
         await transport.close()

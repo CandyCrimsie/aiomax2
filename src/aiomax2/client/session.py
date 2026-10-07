@@ -19,6 +19,7 @@ from aiomax2.exceptions import (
     NetworkError,
     NotFoundError,
     RateLimitError,
+    RequestTimeoutError,
     ResponseDecodeError,
     ServerError,
     UnauthorizedError,
@@ -218,7 +219,14 @@ class AiohttpSession:
                     raise self._api_error(
                         response.status, payload, retry_after=retry_after
                     )
-            except (aiohttp.ClientError, TimeoutError) as exc:
+            except TimeoutError as exc:
+                if can_retry and attempt < self.max_retries:
+                    await asyncio.sleep(self._backoff(attempt))
+                    continue
+                raise RequestTimeoutError(
+                    f"MAX request {normalized_method} {path!r} timed out: {exc}"
+                ) from exc
+            except aiohttp.ClientError as exc:
                 if can_retry and attempt < self.max_retries:
                     await asyncio.sleep(self._backoff(attempt))
                     continue
@@ -238,8 +246,9 @@ class AiohttpSession:
     ) -> Any:
         """Upload one file to a URL previously returned by `POST /uploads`.
 
-        Upload URLs are single-use, so ambiguous failures are deliberately not
-        retried. The pooled session and configured TLS context are reused.
+        MAX accepts one file per upload URL. Ambiguous failures are therefore
+        deliberately not retried. The pooled session and configured TLS
+        context are reused.
         """
 
         session = await self._open_upload_session()
@@ -268,7 +277,11 @@ class AiohttpSession:
                     payload,
                     retry_after=self._retry_after(response),
                 )
-        except (aiohttp.ClientError, TimeoutError) as exc:
+        except TimeoutError as exc:
+            raise RequestTimeoutError(
+                f"MAX upload to {url!r} timed out: {exc}"
+            ) from exc
+        except aiohttp.ClientError as exc:
             raise NetworkError(f"MAX upload to {url!r} failed: {exc}") from exc
 
     @staticmethod

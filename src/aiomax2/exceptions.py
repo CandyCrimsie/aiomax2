@@ -16,7 +16,11 @@ class ClientError(Aiomax2Error):
 
 
 class NetworkError(ClientError):
-    """A network or timeout error occurred."""
+    """A network error occurred before a MAX response was received."""
+
+
+class RequestTimeoutError(NetworkError):
+    """A MAX API or upload request exhausted its timeout/retry budget."""
 
 
 class ResponseDecodeError(ClientError):

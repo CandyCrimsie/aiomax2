@@ -7,6 +7,7 @@ import pytest
 from aiomax2 import Bot, TextFormat
 from aiomax2.client import AiohttpSession
 from aiomax2.enums import SenderAction
+from aiomax2.exceptions import ValidationError
 from aiomax2.types import BotCommand, ChatMember, NewCommentBody
 
 
@@ -172,7 +173,6 @@ async def test_high_level_methods_match_current_max_endpoint_shapes() -> None:
     upload = await bot.get_upload_url("file")
     messages = await bot.get_messages(
         chat_id=100,
-        message_ids=["mid.1"],
         from_time=1,
         to_time=2,
         before=3,
@@ -268,7 +268,7 @@ async def test_high_level_methods_match_current_max_endpoint_shapes() -> None:
     }
     assert find_call(transport.calls, "GET", "/messages")["params"] == {
         "chat_id": 100,
-        "message_ids": ["mid.1"],
+        "message_ids": None,
         "from": 1,
         "to": 2,
         "before": 3,
@@ -296,6 +296,28 @@ async def test_high_level_methods_match_current_max_endpoint_shapes() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {},
+        {"message_ids": []},
+        {"chat_id": 100, "message_ids": ["mid.1"]},
+    ],
+)
+async def test_get_messages_requires_exactly_one_source(
+    kwargs: dict[str, Any],
+) -> None:
+    transport = ApiAuditTransport()
+    bot = Bot("token", transport=cast(AiohttpSession, transport))
+
+    with pytest.raises(ValidationError, match="exactly one"):
+        await bot.get_messages(**kwargs)
+
+    assert transport.calls == []
+    await bot.close()
+
+
+@pytest.mark.asyncio
 async def test_comment_notify_compatibility_argument_is_not_serialized() -> None:
     transport = ApiAuditTransport()
     bot = Bot("token", transport=cast(AiohttpSession, transport))
@@ -314,4 +336,39 @@ async def test_comment_notify_compatibility_argument_is_not_serialized() -> None
         not in find_call(transport.calls, "PUT", "/messages/post.1/comments")["json"]
     )
     assert NewCommentBody(notify=True).api_dump() == {}
+    await bot.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("url", "secret"),
+    [
+        ("http://bot.example/webhook", "secret"),
+        ("https://bot.example/webhook", "1234"),
+        ("https://bot.example/webhook", "секрет"),
+        ("https://bot.example/webhook", "bad secret"),
+    ],
+)
+async def test_subscribe_validates_current_webhook_contract(
+    url: str, secret: str
+) -> None:
+    transport = ApiAuditTransport()
+    bot = Bot("token", transport=cast(AiohttpSession, transport))
+
+    with pytest.raises(ValidationError):
+        await bot.subscribe(url, secret=secret)
+
+    assert transport.calls == []
+    await bot.close()
+
+
+@pytest.mark.asyncio
+async def test_get_upload_url_rejects_removed_photo_type() -> None:
+    transport = ApiAuditTransport()
+    bot = Bot("token", transport=cast(AiohttpSession, transport))
+
+    with pytest.raises(ValueError):
+        await bot.get_upload_url("photo")
+
+    assert transport.calls == []
     await bot.close()

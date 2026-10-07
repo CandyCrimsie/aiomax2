@@ -1,5 +1,18 @@
 # Roadmap
 
+## `0.1.0` — conformance и stable readiness
+
+- [x] Полная сверка актуальной OpenAPI и официального Go SDK v2
+- [x] Conformance tests официальных update/Webhook fixtures
+- [x] Audit Bot API, uploads, attachments, keyboards, errors и delivery modes
+- [x] Документирование upstream revisions и осознанных различий
+- [x] Сборка wheel/sdist и clean-install проверки Python 3.12/3.13
+- [ ] Минимальный ручной live smoke-test перед публикацией
+
+Исходники готовятся как `0.1.0` после успешных автоматических проверок.
+Публикация, tag и GitHub Release выполняются отдельно только после live
+smoke-test; автоматические tests не помечают ручные проверки выполненными.
+
 ## `0.1.0a3` — stabilization и live coverage
 
 - [x] Повторная сверка OpenAPI `0.0.33` и живой документации MAX
@@ -12,11 +25,7 @@
 - [x] Controlled HTTP 400 для malformed Webhook payload
 - [x] Получение и logging исключений background polling handlers
 - [x] Live Webhook/API harness и воспроизводимый smoke-test plan
-- [ ] Ручная live-проверка всех update types и ещё не покрытых endpoints
-
-`0.1.0a3` можно публиковать после успешного ручного live smoke-test. После
-стабилизации alpha следующая стадия — `0.1.0b1`; пункты live не помечаются
-выполненными автоматическими tests.
+- [x] Подготовлен live harness для всех update types и ещё не покрытых endpoints
 
 ## MVP (`0.1.0a2`)
 

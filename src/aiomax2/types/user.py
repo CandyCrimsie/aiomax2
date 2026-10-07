@@ -14,6 +14,9 @@ class User(MAXObject):
     username: str | None = None
     is_bot: bool
     last_activity_time: int | None = None
+    # Still returned by MAX and present in the official Go v2 fixtures, but
+    # documented as deprecated in favour of first_name/last_name.
+    name: str | None = None
 
     @property
     def full_name(self) -> str:

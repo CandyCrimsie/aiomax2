@@ -8,7 +8,8 @@
 | `ForbiddenError` | HTTP 403 |
 | `NotFoundError` | HTTP 404 |
 | `RateLimitError` | HTTP 429 после исчерпания retries |
-| `NetworkError` | ошибка сети или timeout |
+| `RequestTimeoutError` | timeout после исчерпания допустимых retries |
+| `NetworkError` | прочая ошибка сети; базовый класс также для `RequestTimeoutError` |
 | `ServerError` | HTTP 5xx |
 | `ValidationError` | локальная проверка параметров не пройдена |
 | `WebhookSecretError` | secret Webhook отсутствует или неверен |
@@ -30,7 +31,7 @@ except RateLimitError as exc:
 повторяет `429` до `max_retries`. Исключение возникает, только если все попытки
 исчерпаны.
 
-Network/5xx retries по умолчанию выполняются только для idempotent HTTP
+Network/timeout/5xx retries по умолчанию выполняются только для idempotent HTTP
 методов. Неидемпотентный `POST` не повторяется после неоднозначного сетевого
 сбоя, чтобы не создать дубликат.
 

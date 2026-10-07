@@ -45,6 +45,13 @@ await message.edit_text("Новый текст", attachments=[])
     пока не добавлен: безопасное сохранение остальных вложений потребовало бы
     GET/merge workflow и отдельного design pass.
 
+MAX также ограничивает сочетания вложений. `NewMessageBody` локально проверяет
+один sticker или audio как единственное вложение, один file/contact с
+необязательной inline-клавиатурой и не более 12 image/video/keyboard
+attachments. Для contact клавиатура может содержать только одну кнопку.
+Неизвестные будущие attachment types в raw dict остаются forward-compatible и
+не блокируются этими правилами.
+
 ## Типы кнопок MAX
 
 ```python
