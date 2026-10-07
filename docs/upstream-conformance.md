@@ -24,12 +24,27 @@ updates, uploads, errors и retries. Он не задаёт архитектур
 
 ## Осознанные различия
 
-- В Go SDK остались legacy `GetChats`, `DeleteChat` и `AddMembers`.
-  `aiomax2` их не возвращает: `GET /chats` уже удалён, а живая документация
-  объявляет `POST /chats/{chatId}/members` удалённым с 30 сентября 2026 года,
-  хотя OpenAPI `0.0.33` всё ещё содержит этот path.
-- Go subscription body всё ещё содержит `version` и `self_signed_cert`.
-  Актуальная OpenAPI их не содержит, поэтому `aiomax2` их не отправляет.
+### Удалённые и legacy API
+
+Удалённые и устаревшие методы намеренно не возвращались в `aiomax2`:
+
+- `GET /chats` отсутствует в актуальной OpenAPI и текущем Go SDK v2.
+  Официальная документация сообщает, что метод больше не поддерживается
+  с июня 2026 года.
+- `DELETE /chats/{chatId}` всё ещё присутствует в официальном Go SDK v2,
+  но отсутствует в актуальной OpenAPI и документации MAX.
+- `POST /chats/{chatId}/members` всё ещё присутствует в OpenAPI `0.0.33`
+  и официальном Go SDK v2, однако официальная документация MAX сообщает
+  об удалении метода с 30 сентября 2026 года. Поэтому `add_members`
+  намеренно не реализован.
+- Поля Webhook-подписки `version` и `self_signed_cert` всё ещё присутствуют
+  в Go SDK v2, но отсутствуют в актуальной OpenAPI. `aiomax2` их не отправляет.
+- Поле `BotInfo.is_official` присутствует в Go SDK v2, но отсутствует
+  в актуальной OpenAPI и документации MAX, поэтому не является частью
+  типизированного публичного API `aiomax2`.
+
+### Отличия реализации
+
 - Go upload client не добавляет Authorization на upload host. Текущий media
   guide MAX явно требует token для image upload, поэтому `aiomax2` добавляет
   его только для image flow. Video, audio и file upload не наследуют API

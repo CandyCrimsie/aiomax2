@@ -125,13 +125,14 @@ Resumable/chunked upload пока не реализован как отдель�
 
 ## Осознанные исключения
 
-- Удалённые `GET /chats` и `POST /chats/{chatId}/members` не имеют high-level
-  compatibility methods.
-- `Bot.request()` остаётся для диагностики и будущих endpoints, но не меняет
-  заявленный статус удалённых операций.
-- Live coverage отдельных chat/admin/member/pin/comment/video endpoints,
-  audio/video uploads и всех update types требует ручного harness из
-  [live-testing](live-testing.md).
+- Удалённый `GET /chats` не имеет high-level compatibility method.
+- `DELETE /chats/{chatId}` не реализован: метод отсутствует в актуальной
+  OpenAPI и документации MAX, несмотря на сохранённую реализацию в Go SDK v2.
+- `POST /chats/{chatId}/members` намеренно не реализован: OpenAPI `0.0.33`
+  и Go SDK v2 всё ещё содержат метод, но официальная документация MAX
+  сообщает о его удалении с 30 сентября 2026 года.
+- `Bot.request()` остаётся для диагностики и будущих endpoints, но наличие
+  low-level request API не означает поддержку удалённых операций.
 
 ## Версия источников
 
